@@ -4,142 +4,165 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Carte Prospection France</title>
-
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root{
-    --bg:#0f1115;--panel:#171a21;--panel-2:#1e222b;--line:#2a2f3a;
-    --txt:#e8eaf0;--dim:#9aa3b2;--accent:#4f8cff;--accent-2:#7c5cff;
-    --ok:#2fbf71;--warn:#ffb020;--danger:#ff5c5c;--idle:#8b95a7;
-    --shadow:0 10px 30px rgba(0,0,0,.35);
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
-  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);display:flex;overflow:hidden}
-  input,select,textarea,button{font-family:inherit;font-size:13px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f1f5f9;color:#0f172a;overflow:hidden}
 
-  /* ---- LOGIN ---- */
-  #login{position:fixed;inset:0;z-index:9000;background:radial-gradient(circle at 30% 20%,#1b2233,#0f1115 60%);
-    display:flex;align-items:center;justify-content:center;padding:20px}
-  .login-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;width:100%;max-width:390px;box-shadow:var(--shadow)}
-  .login-box h1{margin:0 0 6px;font-size:20px}
-  .login-box p{margin:0 0 22px;font-size:13px;color:var(--dim);line-height:1.5}
-  .login-box .inp{margin-bottom:11px}
-  #loginErr{color:var(--danger);font-size:12.5px;min-height:18px;margin-top:9px;line-height:1.4}
+/* ---------- LOGIN / RESET ---------- */
+#login,#reset{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#1e293b,#0f172a)}
+#reset{display:none}
+.login-box{background:#fff;padding:34px 30px;border-radius:16px;width:min(400px,92vw);
+  box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.login-box h1{font-size:22px;margin-bottom:8px}
+.login-box p{font-size:13px;color:#64748b;margin-bottom:18px;line-height:1.5}
+.inp{width:100%;padding:11px 13px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px;
+  margin-bottom:10px;font-family:inherit;background:#fff;color:#0f172a}
+.inp:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.btn{padding:10px 15px;border:none;border-radius:9px;font-size:14px;cursor:pointer;
+  font-family:inherit;font-weight:600;transition:.15s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:#6366f1;color:#fff}
+.btn-primary:hover{background:#4f46e5}
+.btn-ghost{background:#f1f5f9;color:#475569}
+.btn-ghost:hover{background:#e2e8f0}
+.btn-danger{background:#fee2e2;color:#dc2626}
+.btn-danger:hover{background:#fecaca}
+.err{color:#dc2626;font-size:13px;margin-top:8px;min-height:18px}
+.ok{color:#16a34a;font-size:13px;margin-top:8px;min-height:18px}
+.linkmini{font-size:12px;color:#6366f1;cursor:pointer;text-decoration:underline;
+  display:inline-block;margin-top:10px}
 
-  /* ---- SIDEBAR ---- */
-  #app{display:none;width:100%;height:100vh}
-  #app.on{display:flex}
-  #sidebar{width:380px;min-width:380px;height:100vh;background:var(--panel);border-right:1px solid var(--line);
-    display:flex;flex-direction:column;z-index:1000;transition:margin-left .25s}
-  #sidebar.collapsed{margin-left:-380px}
-  .side-head{padding:16px 18px 13px;border-bottom:1px solid var(--line)}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16.5px}
-  .brand .dot{width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 0 12px var(--accent)}
-  .brand small{display:block;font-weight:400;font-size:11.5px;color:var(--dim);margin-top:2px}
-  #sync{margin-left:auto;font-size:10px;padding:3px 8px;border-radius:20px;background:#2fbf7122;color:var(--ok);border:1px solid #2fbf7155;white-space:nowrap}
-  #sync.off{background:#ff5c5c22;color:var(--danger);border-color:#ff5c5c55}
-  #sync.wait{background:#ffb02022;color:var(--warn);border-color:#ffb02055}
+/* ---------- LAYOUT ---------- */
+#app{display:none;height:100vh;grid-template-columns:340px 1fr;grid-template-rows:54px 1fr}
+#topbar{grid-column:1/-1;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;
+  align-items:center;gap:12px;padding:0 16px;z-index:500;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+#topbar h1{font-size:16px;font-weight:700;white-space:nowrap}
+.spacer{flex:1}
+.tab{padding:7px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;
+  background:transparent;border:none;color:#64748b;font-family:inherit}
+.tab.on{background:#eef2ff;color:#4f46e5}
+#side{background:#fff;border-right:1px solid #e2e8f0;overflow-y:auto;padding:14px}
+#mapwrap{position:relative}
+#map{width:100%;height:100%}
 
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:13px}
-  .stat{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 5px;text-align:center;cursor:pointer;transition:.15s}
-  .stat:hover{border-color:var(--accent)}
-  .stat.active{border-color:var(--accent);background:#22293a}
-  .stat b{display:block;font-size:16px}
-  .stat span{font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+/* ---------- SIDEBAR ---------- */
+.sec{margin-bottom:20px}
+.sec-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+  color:#94a3b8;margin-bottom:9px;display:flex;align-items:center;justify-content:space-between}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:5px 10px;border-radius:20px;font-size:12px;cursor:pointer;border:1.5px solid #e2e8f0;
+  background:#fff;display:flex;align-items:center;gap:5px;transition:.15s;font-family:inherit;color:#475569}
+.chip:hover{border-color:#cbd5e1;background:#f8fafc}
+.chip.on{background:#eef2ff;border-color:#6366f1;color:#4338ca;font-weight:600}
+.chip .n{background:#f1f5f9;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700}
+.chip.on .n{background:#c7d2fe}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
 
-  .toolbar{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
-  .inp{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 11px;outline:none;transition:.15s}
-  .inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,140,255,.13)}
-  textarea.inp{resize:vertical;min-height:66px;line-height:1.5}
-  .btn{border:none;border-radius:9px;padding:9px 13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:.15s;text-decoration:none}
-  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff}
-  .btn-primary:hover{filter:brightness(1.12)}
-  .btn-ghost{background:var(--panel-2);color:var(--txt);border:1px solid var(--line)}
-  .btn-ghost:hover{border-color:var(--accent);color:#fff}
-  .btn-row{display:flex;gap:7px}.btn-row .btn{flex:1}
-  .btn-sm{padding:6px 9px;font-size:11.5px}
+/* ---------- LISTE ---------- */
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:11px;padding:11px 12px;
+  margin-bottom:8px;cursor:pointer;transition:.15s;border-left-width:4px}
+.card:hover{border-color:#c7d2fe;transform:translateX(2px);box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.card-h{display:flex;align-items:flex-start;gap:8px;margin-bottom:5px}
+.card-h b{font-size:13.5px;line-height:1.3;flex:1}
+.card-meta{font-size:11.5px;color:#64748b;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.badge{padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.3px}
+.empty{text-align:center;color:#94a3b8;font-size:13px;padding:30px 10px;line-height:1.6}
 
-  #list{flex:1;overflow-y:auto;padding:10px 12px 30px}
-  #list::-webkit-scrollbar{width:8px}
-  #list::-webkit-scrollbar-thumb{background:#2f3543;border-radius:4px}
-  .card{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--idle);border-radius:11px;padding:11px 12px;margin-bottom:8px;cursor:pointer;transition:.15s}
-  .card:hover{transform:translateX(2px);border-color:#3b4557}
-  .card.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(79,140,255,.2)}
-  .card-top{display:flex;justify-content:space-between;gap:8px}
-  .card h4{margin:0;font-size:13.5px;font-weight:600}
-  .card .meta{font-size:11px;color:var(--dim);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
-  .pill{font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
-  .card .note{font-size:11.5px;color:#b9c1d1;margin-top:7px;line-height:1.45;border-top:1px dashed var(--line);padding-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .card .who{font-size:11px;color:var(--accent);margin-top:5px;font-weight:500}
-  .empty{text-align:center;color:var(--dim);padding:40px 20px;font-size:13px;line-height:1.6}
+/* ---------- PINS ---------- */
+.pin{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+  border:2.5px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.35);display:flex;
+  align-items:center;justify-content:center;position:relative}
+.pin i{transform:rotate(45deg);font-style:normal;font-size:14px;line-height:1}
+.pin .st{position:absolute;bottom:-4px;right:-4px;width:15px;height:15px;border-radius:50%;
+  background:#fff;transform:rotate(45deg);display:flex;align-items:center;justify-content:center;
+  font-size:9px;box-shadow:0 1px 3px rgba(0,0,0,.3);font-style:normal}
+.pin.visited{box-shadow:0 0 0 4px rgba(34,197,94,.35),0 3px 8px rgba(0,0,0,.35)}
+.pin.hot{box-shadow:0 0 0 4px rgba(239,68,68,.35),0 3px 8px rgba(0,0,0,.35);
+  animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(239,68,68,.35),0 3px 8px rgba(0,0,0,.35)}
+  50%{box-shadow:0 0 0 9px rgba(239,68,68,.12),0 3px 8px rgba(0,0,0,.35)}}
 
-  /* ---- MAP ---- */
-  #map{flex:1;height:100vh;background:#0b0d11}
-  .leaflet-control-attribution{background:rgba(15,17,21,.8)!important;color:#7a8394!important;font-size:10px}
-  .leaflet-control-attribution a{color:#9aa3b2!important}
-  #toggleSide{position:absolute;top:14px;left:14px;z-index:1001;width:38px;height:38px;border-radius:10px;
-    background:var(--panel);border:1px solid var(--line);color:var(--txt);cursor:pointer;box-shadow:var(--shadow);font-size:16px}
-  #hint{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:1001;
-    background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;padding:9px 18px;border-radius:30px;
-    font-size:12.5px;font-weight:600;box-shadow:var(--shadow);display:none;animation:pulse 1.6s infinite}
-  @keyframes pulse{50%{opacity:.75}}
-  #tileErr{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:900;display:none;
-    background:var(--panel);border:1px solid var(--danger);border-radius:12px;padding:18px 22px;max-width:340px;
-    font-size:12.5px;line-height:1.6;box-shadow:var(--shadow)}
-  #tileErr b{color:var(--danger)}
+/* ---------- MODAL ---------- */
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:2000;display:none;
+  align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px)}
+.modal.on{display:flex}
+.mbox{background:#fff;border-radius:16px;width:min(560px,96vw);max-height:92vh;overflow-y:auto;
+  box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.mhead{padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;background:#fff;z-index:2;border-radius:16px 16px 0 0}
+.mhead h2{font-size:17px}
+.mbody{padding:18px 20px}
+.mfoot{padding:14px 20px;border-top:1px solid #e2e8f0;display:flex;gap:8px;justify-content:flex-end;
+  position:sticky;bottom:0;background:#fff}
+.x{background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;line-height:1;padding:0 4px}
+.x:hover{color:#0f172a}
+label{display:block;font-size:11.5px;font-weight:700;color:#475569;margin-bottom:5px;
+  text-transform:uppercase;letter-spacing:.4px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fld{margin-bottom:13px}
+textarea.inp{resize:vertical;min-height:70px;line-height:1.5}
+select.inp{cursor:pointer}
 
-  .pin{width:30px;height:30px;border-radius:50% 50% 50% 6px;transform:rotate(-45deg);border:2.5px solid #fff;
-    box-shadow:0 3px 10px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
-  .pin i{transform:rotate(45deg);font-size:14px;font-style:normal}
+/* ---------- NOTES ---------- */
+.note{background:#f8fafc;border-radius:9px;padding:10px 12px;margin-bottom:8px;
+  border-left:3px solid #cbd5e1;position:relative}
+.note-h{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:11px;color:#64748b}
+.note-k{font-weight:700;padding:1px 6px;border-radius:4px;background:#e2e8f0;font-size:10px}
+.note-b{font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.note-x{position:absolute;top:7px;right:8px;background:none;border:none;cursor:pointer;
+  color:#cbd5e1;font-size:15px;line-height:1}
+.note-x:hover{color:#dc2626}
 
-  /* ---- MODAL ---- */
-  #overlay{position:fixed;inset:0;background:rgba(6,8,12,.72);backdrop-filter:blur(4px);z-index:3000;display:none;align-items:center;justify-content:center;padding:20px}
-  #overlay.on{display:flex}
-  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow)}
-  .modal-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
-  .modal-head h3{margin:0;font-size:15px}
-  .modal-body{padding:18px 20px;display:flex;flex-direction:column;gap:13px}
-  .modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px}
-  .field label{display:block;font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-  .close{background:none;border:none;color:var(--dim);font-size:22px;cursor:pointer}
-  .close:hover{color:#fff}
-  .chips{display:flex;gap:6px;flex-wrap:wrap}
-  .chip{padding:7px 12px;border-radius:8px;border:1.5px solid var(--line);background:var(--panel-2);color:var(--dim);cursor:pointer;font-size:12px;font-weight:600;transition:.15s;user-select:none}
-  .chip.on{color:#fff}
+/* ---------- DASHBOARD ---------- */
+#dash{display:none;grid-column:1/-1;overflow-y:auto;background:#f8fafc;padding:24px}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;
+  margin-bottom:24px;max-width:1400px}
+.dcard{background:#fff;border-radius:13px;padding:17px;border:1px solid #e2e8f0}
+.dcard .v{font-size:30px;font-weight:800;line-height:1.1;margin-bottom:3px}
+.dcard .l{font-size:12px;color:#64748b;font-weight:600}
+.dsec{background:#fff;border-radius:13px;padding:19px;border:1px solid #e2e8f0;
+  margin-bottom:16px;max-width:1400px}
+.dsec h3{font-size:14px;margin-bottom:14px}
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px}
+.bar .nm{width:150px;flex:none;display:flex;align-items:center;gap:6px}
+.bar .tr{flex:1;height:9px;background:#f1f5f9;border-radius:5px;overflow:hidden}
+.bar .fl{height:100%;border-radius:5px;transition:width .5s}
+.bar .vv{width:34px;text-align:right;font-weight:700;font-size:12px;flex:none}
 
-  .leaflet-popup-content-wrapper{background:var(--panel);color:var(--txt);border-radius:12px;border:1px solid var(--line);box-shadow:var(--shadow)}
-  .leaflet-popup-content{margin:13px 15px;font-size:13px;min-width:215px}
-  .leaflet-popup-tip{background:var(--panel);border:1px solid var(--line)}
-  .leaflet-popup-close-button{color:var(--dim)!important}
-  .pop h4{margin:0 0 6px;font-size:14px}
-  .pop .r{font-size:11.5px;color:var(--dim);margin:3px 0;display:flex;gap:6px}
-  .pop .r b{color:var(--txt);font-weight:500}
-  .pop .nt{margin-top:9px;padding:8px 10px;background:var(--panel-2);border-radius:8px;font-size:11.5px;line-height:1.5;border-left:2px solid var(--accent)}
-  .pop .acts{display:flex;gap:6px;margin-top:11px}
+/* ---------- TYPES MANAGER ---------- */
+.trow{display:flex;align-items:center;gap:9px;padding:8px;border:1px solid #e2e8f0;
+  border-radius:9px;margin-bottom:7px;background:#fff}
+.trow input[type=text]{flex:1;border:1px solid #e2e8f0;border-radius:7px;padding:6px 9px;
+  font-size:13px;font-family:inherit;min-width:0}
+.trow input[type=color]{width:36px;height:32px;border:1px solid #e2e8f0;border-radius:7px;
+  cursor:pointer;padding:2px;background:#fff;flex:none}
+.trow .em{width:46px;text-align:center;flex:none}
 
-  #toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,80px);z-index:5000;background:var(--panel);
-    border:1px solid var(--line);border-left:3px solid var(--ok);padding:11px 18px;border-radius:10px;font-size:13px;
-    box-shadow:var(--shadow);transition:transform .3s cubic-bezier(.2,.8,.3,1);pointer-events:none;max-width:80vw}
-  #toast.on{transform:translate(-50%,0)}
+/* ---------- MAP CONTROLS ---------- */
+#layers{position:absolute;top:12px;right:12px;z-index:600;background:#fff;border-radius:10px;
+  padding:5px;display:flex;gap:3px;box-shadow:0 3px 12px rgba(0,0,0,.15)}
+#layers button{padding:6px 11px;border:none;background:none;border-radius:7px;font-size:12px;
+  cursor:pointer;font-family:inherit;color:#64748b;font-weight:600}
+#layers button.on{background:#eef2ff;color:#4f46e5}
+.leaflet-popup-content{margin:12px 14px;font-family:inherit}
+.leaflet-popup-content b{font-size:14px}
 
-  @media(max-width:820px){
-    #app.on{flex-direction:column}
-    #sidebar{width:100%;min-width:0;height:48vh;border-right:none;border-bottom:1px solid var(--line)}
-    #sidebar.collapsed{margin-left:0;height:0;overflow:hidden;border:none}
-    #map{height:52vh;flex:1}
-    #toggleSide{top:auto;bottom:14px;left:14px}
-  }
+@media(max-width:820px){
+  #app{grid-template-columns:1fr;grid-template-rows:54px 44vh 1fr}
+  #side{order:2;border-right:none;border-top:1px solid #e2e8f0}
+  #mapwrap{order:1}
+  .row{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
 
-<!-- ================= LOGIN ================= -->
+<!-- ============ LOGIN ============ -->
 <div id="login">
   <div class="login-box">
     <h1>🗺️ Carte Prospection</h1>
@@ -147,501 +170,849 @@
     <input class="inp" id="l-mail" type="email" placeholder="Email" autocomplete="username">
     <input class="inp" id="l-pass" type="password" placeholder="Mot de passe" autocomplete="current-password">
     <button class="btn btn-primary" id="l-btn" style="width:100%;margin-top:6px">Se connecter</button>
-    <div id="loginErr"></div>
+    <div class="err" id="l-err"></div>
+    <span class="linkmini" id="l-forgot">Mot de passe oublié ?</span>
   </div>
 </div>
 
-<!-- ================= APP ================= -->
+<!-- ============ RESET ============ -->
+<div id="reset">
+  <div class="login-box">
+    <h1>🔑 Nouveau mot de passe</h1>
+    <p id="r-intro">Choisis ton nouveau mot de passe.</p>
+    <input class="inp" id="r-pass" type="password" placeholder="Nouveau mot de passe (6 car. min)">
+    <input class="inp" id="r-pass2" type="password" placeholder="Confirmer">
+    <button class="btn btn-primary" id="r-btn" style="width:100%;margin-top:6px">Valider</button>
+    <div class="err" id="r-err"></div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
 <div id="app">
-  <aside id="sidebar">
-    <div class="side-head">
-      <div class="brand">
-        <span class="dot"></span>
-        <div>Carte Prospection<small id="subtitle">Chargement…</small></div>
-        <span id="sync" class="wait">● sync</span>
-      </div>
-      <div class="stats" id="stats"></div>
-    </div>
-    <div class="toolbar">
-      <input class="inp" id="search" placeholder="🔍 Rechercher lieu, ville, contact, note…">
-      <div class="btn-row">
-        <button class="btn btn-primary" id="addBtn">＋ Ajouter un lieu</button>
-        <button class="btn btn-ghost" id="geoBtn" title="Chercher une adresse">📍 Adresse</button>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-ghost btn-sm" id="csvBtn">📄 CSV</button>
-        <button class="btn btn-ghost btn-sm" id="jsonBtn">⬇ JSON</button>
-        <button class="btn btn-ghost btn-sm" id="fitBtn">🎯 Tout voir</button>
-        <button class="btn btn-ghost btn-sm" id="outBtn" title="Déconnexion">⏏</button>
-      </div>
-    </div>
-    <div id="list"></div>
-  </aside>
+  <div id="topbar">
+    <h1>🗺️ Prospection</h1>
+    <button class="tab on" id="tab-map">Carte</button>
+    <button class="tab" id="tab-dash">Dashboard</button>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost" id="btn-types">⚙️ Types</button>
+    <button class="btn btn-primary" id="btn-add">+ Lieu</button>
+    <button class="btn btn-ghost" id="btn-out">Sortir</button>
+  </div>
 
-  <div id="map"></div>
-  <button id="toggleSide">☰</button>
-  <div id="hint">🖱️ Clique sur la carte pour placer le lieu — <u>Échap</u> pour annuler</div>
-  <div id="tileErr">
-    <b>⚠️ Fond de carte non chargé</b><br>
-    Les images viennent d'un serveur externe. Vérifie ta connexion internet,
-    et désactive un éventuel bloqueur de publicité / filtrage réseau sur
-    <code>cartocdn.com</code>.
+  <div id="side">
+    <div class="sec">
+      <input class="inp" id="q" placeholder="🔍 Rechercher..." style="margin-bottom:0">
+    </div>
+    <div class="sec">
+      <div class="sec-t">Types <span class="linkmini" id="f-types-all">tout</span></div>
+      <div class="chips" id="f-types"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-t">Statut <span class="linkmini" id="f-stat-all">tout</span></div>
+      <div class="chips" id="f-stat"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-t">Priorité <span class="linkmini" id="f-prio-all">tout</span></div>
+      <div class="chips" id="f-prio"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-t"><span id="cnt">0 lieu</span></div>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <div id="mapwrap">
+    <div id="map"></div>
+    <div id="layers">
+      <button class="on" data-l="light">Clair</button>
+      <button data-l="std">Standard</button>
+      <button data-l="sat">Satellite</button>
+    </div>
+  </div>
+
+  <div id="dash"></div>
+</div>
+
+<!-- ============ MODAL LIEU ============ -->
+<div class="modal" id="m-place">
+  <div class="mbox">
+    <div class="mhead">
+      <h2 id="mp-title">Nouveau lieu</h2>
+      <button class="x" data-close="m-place">&times;</button>
+    </div>
+    <div class="mbody">
+      <div class="fld">
+        <label>Nom du lieu *</label>
+        <input class="inp" id="p-name" placeholder="Château de Chambord">
+      </div>
+      <div class="row">
+        <div class="fld">
+          <label>Type</label>
+          <select class="inp" id="p-type"></select>
+        </div>
+        <div class="fld">
+          <label>Statut</label>
+          <select class="inp" id="p-status"></select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="fld">
+          <label>Priorité</label>
+          <select class="inp" id="p-prio">
+            <option value="low">Basse</option>
+            <option value="mid" selected>Moyenne</option>
+            <option value="high">Haute</option>
+          </select>
+        </div>
+        <div class="fld">
+          <label>Date de RDV</label>
+          <input class="inp" id="p-rdv" type="date">
+        </div>
+      </div>
+      <div class="fld">
+        <label>Adresse / Ville</label>
+        <input class="inp" id="p-addr" placeholder="41250 Chambord">
+      </div>
+      <div class="row">
+        <div class="fld">
+          <label>Latitude *</label>
+          <input class="inp" id="p-lat" type="number" step="any" placeholder="47.6161">
+        </div>
+        <div class="fld">
+          <label>Longitude *</label>
+          <input class="inp" id="p-lng" type="number" step="any" placeholder="1.5170">
+        </div>
+      </div>
+      <div class="fld">
+        <button class="btn btn-ghost" id="p-geo" style="width:100%">📍 Trouver les coordonnées depuis l'adresse</button>
+        <div class="err" id="p-geoerr"></div>
+      </div>
+      <div class="fld">
+        <label>Contact (nom / rôle)</label>
+        <input class="inp" id="p-contact" placeholder="Marie Dupont, directrice">
+      </div>
+      <div class="row">
+        <div class="fld">
+          <label>Téléphone</label>
+          <input class="inp" id="p-tel" placeholder="06 12 34 56 78">
+        </div>
+        <div class="fld">
+          <label>Email</label>
+          <input class="inp" id="p-mail" placeholder="contact@lieu.fr">
+        </div>
+      </div>
+      <div class="fld">
+        <label>Site web</label>
+        <input class="inp" id="p-web" placeholder="https://...">
+      </div>
+      <div class="fld">
+        <label>Description</label>
+        <textarea class="inp" id="p-desc" placeholder="Contexte, intérêt du lieu..."></textarea>
+      </div>
+      <div class="err" id="p-err"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-danger" id="p-del" style="margin-right:auto;display:none">Supprimer</button>
+      <button class="btn btn-ghost" data-close="m-place">Annuler</button>
+      <button class="btn btn-primary" id="p-save">Enregistrer</button>
+    </div>
   </div>
 </div>
 
-<div id="overlay">
-  <div class="modal">
-    <div class="modal-head"><h3 id="modalTitle">Nouveau lieu</h3><button class="close" id="modalClose">×</button></div>
-    <div class="modal-body">
-      <div class="field"><label>Nom du lieu / entreprise *</label><input class="inp" id="f-name" placeholder="Ex : Local commercial — rue Verte"></div>
-      <div class="grid2">
-        <div class="field"><label>Ville</label><input class="inp" id="f-city" placeholder="Clermont-Ferrand"></div>
-        <div class="field"><label>Date de RDV</label><input class="inp" id="f-date" type="date"></div>
-      </div>
-      <div class="field"><label>Statut</label><div class="chips" id="f-status"></div></div>
-      <div class="field"><label>Priorité</label><div class="chips" id="f-prio"></div></div>
-      <div class="grid2">
-        <div class="field"><label>Contact — qui voir ?</label><input class="inp" id="f-contact" placeholder="M. Dupont, gérant"></div>
-        <div class="field"><label>Tél / Email</label><input class="inp" id="f-phone" placeholder="06 12 34 56 78"></div>
-      </div>
-      <div class="field"><label>Notes</label><textarea class="inp" id="f-notes" placeholder="Objectif de la visite, points à aborder…"></textarea></div>
-      <div class="grid2">
-        <div class="field"><label>Latitude</label><input class="inp" id="f-lat" type="number" step="any"></div>
-        <div class="field"><label>Longitude</label><input class="inp" id="f-lng" type="number" step="any"></div>
-      </div>
+<!-- ============ MODAL DÉTAIL ============ -->
+<div class="modal" id="m-view">
+  <div class="mbox">
+    <div class="mhead">
+      <h2 id="mv-title">Lieu</h2>
+      <button class="x" data-close="m-view">&times;</button>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" id="delBtn" style="color:var(--danger);display:none">🗑 Supprimer</button>
-      <div style="display:flex;gap:8px;margin-left:auto">
-        <button class="btn btn-ghost" id="cancelBtn">Annuler</button>
-        <button class="btn btn-primary" id="saveBtn">Enregistrer</button>
-      </div>
+    <div class="mbody" id="mv-body"></div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" data-close="m-view">Fermer</button>
+      <button class="btn btn-primary" id="mv-edit">Modifier</button>
     </div>
   </div>
 </div>
 
-<div id="toast"></div>
+<!-- ============ MODAL TYPES ============ -->
+<div class="modal" id="m-types">
+  <div class="mbox">
+    <div class="mhead">
+      <h2>⚙️ Types de lieux</h2>
+      <button class="x" data-close="m-types">&times;</button>
+    </div>
+    <div class="mbody">
+      <p style="font-size:12.5px;color:#64748b;margin-bottom:14px;line-height:1.5">
+        Emoji, nom et couleur. La couleur définit celle du marqueur sur la carte.
+      </p>
+      <div id="t-list"></div>
+      <button class="btn btn-ghost" id="t-add" style="width:100%;margin-top:8px">+ Ajouter un type</button>
+      <div class="err" id="t-err"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" data-close="m-types">Fermer</button>
+      <button class="btn btn-primary" id="t-save">Enregistrer</button>
+    </div>
+  </div>
+</div>
 
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ═══════════════════════════════════════════════════════
-   ⚙️  CONFIG
-   ═══════════════════════════════════════════════════════ */
+/* ============ CONFIG ============ */
 const SUPA_URL = 'https://hawimjftwmrwljkjsnzu.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhd2ltamZ0d21yd2xqa2pzbnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjk4MTIsImV4cCI6MjEwMDgwNTgxMn0.Ej-PlxrKOd8cL9m3yQfIh3H9AvvDjY_d2xWGZskCz1s';
-/* ═══════════════════════════════════════════════════════ */
+const sb = supabase.createClient(SB_URL, SB_KEY);
 
-const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s)
+  .replace(/\u0026/g, "\u0026amp;")
+  .replace(/\u003C/g, "\u0026lt;")
+  .replace(/\u003E/g, "\u0026gt;")
+  .replace(/\u0022/g, "\u0026quot;")
+  .replace(/\u0027/g, "\u0026#39;");
 
 const STATUS = {
-  todo:     {label:'À contacter', color:'#8b95a7', icon:'○'},
-  contacted:{label:'Contacté',    color:'#4f8cff', icon:'✆'},
-  rdv:      {label:'RDV pris',    color:'#ffb020', icon:'★'},
-  visited:  {label:'Visité',      color:'#2fbf71', icon:'✓'},
-  ko:       {label:'Écarté',      color:'#ff5c5c', icon:'✕'}
+  todo:    { label: "À contacter", icon: "\u25CB", color: "#94a3b8" },
+  contact: { label: "Contacté",    icon: "\u2706", color: "#3b82f6" },
+  rdv:     { label: "RDV pris",    icon: "\u2605", color: "#f59e0b" },
+  visited: { label: "Visité",      icon: "\u2713", color: "#22c55e" },
+  ko:      { label: "Écarté",      icon: "\u2715", color: "#ef4444" }
 };
-const PRIO = {high:'🔥 Haute', mid:'● Moyenne', low:'· Basse'};
-
-let places = [], editId = null, placing = false, filterStatus = null, selectedId = null;
-let map, cluster, markers = {};
-
-/* ══════════════ AUTH ══════════════ */
-const $ = id => document.getElementById(id);
-
-$('l-btn').onclick = doLogin;
-$('l-pass').onkeydown = e => { if(e.key==='Enter') doLogin(); };
-$('l-mail').onkeydown = e => { if(e.key==='Enter') $('l-pass').focus(); };
-
-async function doLogin(){
-  const email = $('l-mail').value.trim(), password = $('l-pass').value;
-  if(!email||!password) return $('loginErr').textContent = 'Email et mot de passe requis.';
-  $('l-btn').textContent = 'Connexion…'; $('loginErr').textContent = '';
-  const {error} = await sb.auth.signInWithPassword({email,password});
-  $('l-btn').textContent = 'Se connecter';
-  if(error) $('loginErr').textContent = error.message.includes('Invalid')
-    ? 'Email ou mot de passe incorrect.' : error.message;
-}
-
-sb.auth.onAuthStateChange((_e, session) => {
-  if(session){ $('login').style.display='none'; $('app').classList.add('on'); boot(); }
-  else { $('login').style.display='flex'; $('app').classList.remove('on'); }
-});
-
-$('outBtn').onclick = async () => {
-  if(confirm('Se déconnecter ?')){ await sb.auth.signOut(); location.reload(); }
+const PRIO = {
+  low:  { label: "Basse",   color: "#94a3b8" },
+  mid:  { label: "Moyenne", color: "#3b82f6" },
+  high: { label: "Haute",   color: "#ef4444" }
 };
+const NOTE_KINDS = {
+  call:  { label: "Appel",  emoji: "\uD83D\uDCDE" },
+  mail:  { label: "Mail",   emoji: "\uD83D\uDCE7" },
+  rdv:   { label: "RDV",    emoji: "\uD83E\uDD1D" },
+  visit: { label: "Visite", emoji: "\uD83D\uDC41\uFE0F" },
+  idea:  { label: "Idée",   emoji: "\uD83D\uDCA1" },
+  other: { label: "Autre",  emoji: "\uD83D\uDCCE" }
+};
+const DEFAULT_TYPES = [
+  { label: "Galerie",             emoji: "\uD83D\uDDBC\uFE0F", color: "#8b5cf6", sort: 1 },
+  { label: "Château",             emoji: "\uD83C\uDFF0",       color: "#f59e0b", sort: 2 },
+  { label: "Résidence d'artiste", emoji: "\uD83C\uDFA8",       color: "#ec4899", sort: 3 },
+  { label: "Musée",               emoji: "\uD83C\uDFDB\uFE0F", color: "#0ea5e9", sort: 4 },
+  { label: "Friche / Usine",      emoji: "\uD83C\uDFED",       color: "#78716c", sort: 5 },
+  { label: "Théâtre",             emoji: "\uD83C\uDFAD",       color: "#dc2626", sort: 6 },
+  { label: "Jardin / Parc",       emoji: "\uD83C\uDF3F",       color: "#16a34a", sort: 7 },
+  { label: "Autre",               emoji: "\uD83D\uDCCD",       color: "#64748b", sort: 8 }
+];
 
-/* ══════════════ BOOT ══════════════ */
-let booted = false;
-async function boot(){
-  if(booted) return; booted = true;
-  initMap();
-  await fetchPlaces();
-  subscribeRealtime();
+/* ============ STATE ============ */
+let PLACES = [], TYPES = [], NOTES = [], USER = null;
+let map, layerGroup, tileLayer, markers = {};
+let editId = null, placing = false;
+const F = { types: new Set(), stat: new Set(), prio: new Set(), q: "" };
+
+/* ============ AUTH ============ */
+function isRecovery() {
+  const h = location.hash || "";
+  return h.includes("type=recovery");
+}
+function hashError() {
+  const h = (location.hash || "").replace(/^#/, "");
+  const p = new URLSearchParams(h);
+  return p.get("error_description") || p.get("error_code");
 }
 
-/* ══════════════ CARTE ══════════════ */
-function initMap(){
-  map = L.map('map',{zoomControl:false,minZoom:4}).setView([46.6,2.4],6);
-  L.control.zoom({position:'bottomright'}).addTo(map);
-
-  const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    {attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19,subdomains:'abcd'});
-  const layers = {
-    'Sombre': dark,
-    'Clair': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      {attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19,subdomains:'abcd'}),
-    'Plan OSM': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      {attribution:'&copy; OpenStreetMap',maxZoom:19}),
-    'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {attribution:'&copy; Esri',maxZoom:19})
-  };
-  dark.addTo(map);
-  L.control.layers(layers,null,{position:'bottomright'}).addTo(map);
-
-  let tileOK = false;
-  dark.on('tileload', () => { tileOK = true; $('tileErr').style.display='none'; });
-  dark.on('tileerror', () => { if(!tileOK) $('tileErr').style.display='block'; });
-  setTimeout(()=>{ if(!tileOK) $('tileErr').style.display='block'; }, 6000);
-
-  // ---- Contour France (frontières + départements) ----
-  const FR = 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/';
-  fetch(FR+'departements.geojson').then(r=>r.json()).then(g=>{
-    L.geoJSON(g,{style:{color:'#4f8cff',weight:.6,opacity:.35,fill:false},interactive:false}).addTo(map);
-  }).catch(()=>{});
-  fetch(FR+'metropole.geojson').then(r=>r.json()).then(g=>{
-    L.geoJSON(g,{style:{color:'#6ea8ff',weight:2.2,opacity:.9,fillColor:'#4f8cff',fillOpacity:.06},interactive:false})
-      .addTo(map).bringToBack();
-  }).catch(()=>{});
-
-  cluster = L.markerClusterGroup({
-    maxClusterRadius:45, showCoverageOnHover:false,
-    iconCreateFunction: c => L.divIcon({
-      html:`<div style="background:linear-gradient(135deg,#4f8cff,#7c5cff);color:#fff;width:36px;height:36px;
-        border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;
-        border:2.5px solid rgba(255,255,255,.85);box-shadow:0 3px 12px rgba(0,0,0,.5)">${c.getChildCount()}</div>`,
-      className:'',iconSize:[36,36]})
-  }).addTo(map);
-
-  map.on('click', onMapClick);
-  $('toggleSide').onclick = ()=>{ $('sidebar').classList.toggle('collapsed'); setTimeout(()=>map.invalidateSize(),280); };
-  buildChips();
+async function login() {
+  $("l-err").textContent = "";
+  const mail = $("l-mail").value.trim(), pass = $("l-pass").value;
+  if (!mail || !pass) { $("l-err").textContent = "Email et mot de passe requis."; return; }
+  $("l-btn").textContent = "Connexion...";
+  const { error } = await sb.auth.signInWithPassword({ email: mail, password: pass });
+  $("l-btn").textContent = "Se connecter";
+  if (error) $("l-err").textContent = "Identifiants incorrects.";
 }
 
-/* ══════════════ DONNÉES SUPABASE ══════════════ */
-function setSync(state,txt){
-  const el = $('sync'); el.className=state; el.textContent=txt;
+async function forgot() {
+  const mail = $("l-mail").value.trim();
+  if (!mail) { $("l-err").textContent = "Saisis d'abord ton email ci-dessus."; return; }
+  const url = location.origin + location.pathname;
+  const { error } = await sb.auth.resetPasswordForEmail(mail, { redirectTo: url });
+  $("l-err").style.color = error ? "#dc2626" : "#16a34a";
+  $("l-err").textContent = error ? error.message : "Email envoyé ! Vérifie ta boîte (et les spams).";
 }
 
-async function fetchPlaces(){
-  setSync('wait','● chargement');
-  const {data,error} = await sb.from('places').select('*').order('created_at');
-  if(error){ setSync('off','● erreur'); return toast('Erreur : '+error.message,'var(--danger)'); }
-  places = data;
-  setSync('','● en ligne');
-  render(); fitAll();
+async function doReset() {
+  $("r-err").textContent = "";
+  const a = $("r-pass").value, b = $("r-pass2").value;
+  if (a.length < 6) { $("r-err").textContent = "6 caractères minimum."; return; }
+  if (a !== b) { $("r-err").textContent = "Les deux mots de passe diffèrent."; return; }
+  $("r-btn").textContent = "Enregistrement...";
+  const { error } = await sb.auth.updateUser({ password: a });
+  $("r-btn").textContent = "Valider";
+  if (error) { $("r-err").textContent = error.message; return; }
+  history.replaceState(null, "", location.pathname);
+  alert("Mot de passe modifié ! Tu es connecté.");
+  location.reload();
 }
 
-function subscribeRealtime(){
-  sb.channel('places-live')
-    .on('postgres_changes',{event:'*',schema:'public',table:'places'}, payload => {
-      if(payload.eventType==='INSERT'){
-        if(!places.some(p=>p.id===payload.new.id)){
-          places.push(payload.new);
-          toast('➕ '+payload.new.name+' (ajouté à distance)','var(--accent)');
-        }
-      }
-      if(payload.eventType==='UPDATE'){
-        places = places.map(p=>p.id===payload.new.id?payload.new:p);
-      }
-      if(payload.eventType==='DELETE'){
-        places = places.filter(p=>p.id!==payload.old.id);
-      }
-      render();
-    })
-    .subscribe(st => setSync(st==='SUBSCRIBED'?'':'off', st==='SUBSCRIBED'?'● en ligne':'● hors ligne'));
-}
-
-async function upsertPlace(data){
-  setSync('wait','● envoi');
-  const payload = {...data, updated_at:new Date().toISOString()};
-  const {data:res,error} = await sb.from('places').upsert(payload).select().single();
-  if(error){ setSync('off','● erreur'); return toast('Échec : '+error.message,'var(--danger)'); }
-  const i = places.findIndex(p=>p.id===res.id);
-  if(i>=0){ places[i]=res; } else { places.push(res); }
-  setSync('','● en ligne'); render();
-  toast(i>=0?'Mis à jour ✓':'Lieu ajouté ✓');
-}
-
-async function deletePlace(id){
-  const {error} = await sb.from('places').delete().eq('id',id);
-  if(error) return toast('Échec suppression','var(--danger)');
-  places = places.filter(p=>p.id!==id);
-  render(); toast('Supprimé','var(--danger)');
-}
-
-/* ══════════════ RENDU ══════════════ */
-function visible(){
-  const q = $('search').value.toLowerCase().trim();
-  return places.filter(p=>{
-    if(filterStatus && p.status!==filterStatus) return false;
-    if(!q) return true;
-    return [p.name,p.city,p.contact,p.notes,p.phone].join(' ').toLowerCase().includes(q);
-  });
-}
-
-function makeIcon(p){
-  const s = STATUS[p.status]||STATUS.todo;
-  const ring = p.prio==='high' ? 'box-shadow:0 0 0 4px rgba(255,92,92,.3),0 3px 10px rgba(0,0,0,.5);' : '';
-  return L.divIcon({html:`<div class="pin" style="background:${s.color};${ring}"><i>${s.icon}</i></div>`,
-    className:'',iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-30]});
-}
-
-function render(){
-  if(!cluster) return;
-  cluster.clearLayers(); markers = {};
-  visible().forEach(p=>{
-    const m = L.marker([p.lat,p.lng],{icon:makeIcon(p),title:p.name}).bindPopup(popupHtml(p),{maxWidth:290});
-    m.on('click',()=>{selectedId=p.id;renderList()});
-    markers[p.id]=m; cluster.addLayer(m);
-  });
-  renderList(); renderStats();
-}
-
-function popupHtml(p){
-  const s = STATUS[p.status]||STATUS.todo;
-  return `<div class="pop">
-    <h4>${esc(p.name)}</h4>
-    <div class="r"><span class="pill" style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}55">${s.label}</span>
-      <span class="pill" style="background:#ffffff10;color:var(--dim)">${PRIO[p.prio]||''}</span></div>
-    ${p.city?`<div class="r">📍 <b>${esc(p.city)}</b></div>`:''}
-    ${p.contact?`<div class="r">👤 <b>${esc(p.contact)}</b></div>`:''}
-    ${p.phone?`<div class="r">📞 <b>${esc(p.phone)}</b></div>`:''}
-    ${p.date?`<div class="r">📅 <b>${fmtDate(p.date)}</b></div>`:''}
-    ${p.notes?`<div class="nt">${esc(p.notes).replace(/\n/g,'<br>')}</div>`:''}
-    <div class="acts">
-      <button class="btn btn-ghost btn-sm" onclick="openEdit('${p.id}')">✏️ Modifier</button>
-      <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener"
-         href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}">🚗 Itinéraire</a>
-    </div></div>`;
-}
-
-function renderList(){
-  const items = visible().slice().sort((a,b)=>{
-    const w={high:0,mid:1,low:2};
-    if(a.date&&!b.date) return -1;
-    if(!a.date&&b.date) return 1;
-    if(a.date&&b.date&&a.date!==b.date) return a.date<b.date?-1:1;
-    return (w[a.prio]??1)-(w[b.prio]??1);
-  });
-  if(!items.length){
-    $('list').innerHTML = `<div class="empty">Aucun lieu.<br><br>Clique sur <b>＋ Ajouter un lieu</b> pour démarrer.</div>`;
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === "PASSWORD_RECOVERY" || isRecovery()) {
+    $("login").style.display = "none";
+    $("app").style.display = "none";
+    $("reset").style.display = "flex";
     return;
   }
-  $('list').innerHTML = items.map(p=>{
-    const s = STATUS[p.status]||STATUS.todo;
-    return `<div class="card ${selectedId===p.id?'sel':''}" style="border-left-color:${s.color}" onclick="focusPlace('${p.id}')">
-      <div class="card-top">
-        <div><h4>${p.prio==='high'?'🔥 ':''}${esc(p.name)}</h4>
-          <div class="meta">${p.city?`<span>📍 ${esc(p.city)}</span>`:''}${p.date?`<span>📅 ${fmtDate(p.date)}</span>`:''}</div>
-        </div>
-        <span class="pill" style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}55">${s.label}</span>
-      </div>
-      ${p.contact?`<div class="who">👤 ${esc(p.contact)}</div>`:''}
-      ${p.notes?`<div class="note">${esc(p.notes)}</div>`:''}
-    </div>`;
-  }).join('');
-}
+  if (session && session.user) {
+    USER = session.user;
+    $("login").style.display = "none";
+    $("reset").style.display = "none";
+    $("app").style.display = "grid";
+    await boot();
+  } else {
+    USER = null;
+    $("app").style.display = "none";
+    $("reset").style.display = "none";
+    $("login").style.display = "flex";
+  }
+});
 
-function renderStats(){
-  const c={}; places.forEach(p=>c[p.status]=(c[p.status]||0)+1);
-  $('stats').innerHTML = ['todo','contacted','rdv','visited'].map(k=>{
-    const s=STATUS[k];
-    return `<div class="stat ${filterStatus===k?'active':''}" onclick="toggleFilter('${k}')" title="${s.label}">
-      <b style="color:${s.color}">${c[k]||0}</b><span>${s.label.split(' ')[0]}</span></div>`;
-  }).join('');
-  $('subtitle').textContent = `${places.length} lieu${places.length>1?'x':''} • ${c.rdv||0} RDV`;
-}
+(function initAuthView() {
+  const err = hashError();
+  if (err && isRecovery() === false && (location.hash || "").includes("error")) {
+    $("l-err").textContent = "Lien expiré ou déjà utilisé. Demande un nouveau lien.";
+    history.replaceState(null, "", location.pathname);
+  }
+  if (isRecovery()) {
+    $("login").style.display = "none";
+    $("reset").style.display = "flex";
+  }
+})();
 
-window.toggleFilter = k => { filterStatus = filterStatus===k?null:k; render(); };
-window.focusPlace = id => {
-  const p = places.find(x=>x.id===id); if(!p) return;
-  selectedId=id;
-  map.flyTo([p.lat,p.lng], Math.max(map.getZoom(),11),{duration:.7});
-  setTimeout(()=>{const m=markers[id]; if(m) cluster.zoomToShowLayer(m,()=>m.openPopup())},720);
-  renderList();
+$("l-btn").onclick = login;
+$("l-pass").onkeydown = e => { if (e.key === "Enter") login(); };
+$("l-forgot").onclick = forgot;
+$("r-btn").onclick = doReset;
+$("r-pass2").onkeydown = e => { if (e.key === "Enter") doReset(); };
+$("btn-out").onclick = () => sb.auth.signOut();
+
+/* ============ MAP ============ */
+const TILES = {
+  light: { url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+           attr: "\u0026copy; OpenStreetMap, \u0026copy; CARTO" },
+  std:   { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+           attr: "\u0026copy; OpenStreetMap" },
+  sat:   { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+           attr: "\u0026copy; Esri" }
 };
 
-/* ══════════════ MODAL ══════════════ */
-let tmpStatus='todo', tmpPrio='mid';
-function buildChips(){
-  $('f-status').innerHTML = Object.entries(STATUS).map(([k,s])=>
-    `<div class="chip" data-k="${k}" data-c="${s.color}">${s.icon} ${s.label}</div>`).join('');
-  $('f-prio').innerHTML = Object.entries(PRIO).map(([k,l])=>
-    `<div class="chip" data-k="${k}" data-c="${k==='high'?'#ff5c5c':k==='mid'?'#4f8cff':'#8b95a7'}">${l}</div>`).join('');
-  document.querySelectorAll('#f-status .chip').forEach(c=>c.onclick=()=>{tmpStatus=c.dataset.k;paintChips()});
-  document.querySelectorAll('#f-prio .chip').forEach(c=>c.onclick=()=>{tmpPrio=c.dataset.k;paintChips()});
+function initMap() {
+  if (map) return;
+  map = L.map("map", { zoomControl: true }).setView([46.6, 2.4], 6);
+  setTile("light");
+  layerGroup = L.layerGroup().addTo(map);
+  map.on("click", e => {
+    if (!placing) return;
+    placing = false;
+    document.body.style.cursor = "";
+    openPlace(null, e.latlng.lat, e.latlng.lng);
+  });
+  document.querySelectorAll("#layers button").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll("#layers button").forEach(x => x.classList.remove("on"));
+      b.classList.add("on");
+      setTile(b.dataset.l);
+    };
+  });
 }
-function paintChips(){
-  [['#f-status',()=>tmpStatus],['#f-prio',()=>tmpPrio]].forEach(([sel,get])=>{
-    document.querySelectorAll(sel+' .chip').forEach(c=>{
-      const on=c.dataset.k===get();
-      c.classList.toggle('on',on);
-      c.style.background = on?c.dataset.c:'var(--panel-2)';
-      c.style.borderColor = on?c.dataset.c:'var(--line)';
-    });
+function setTile(k) {
+  if (tileLayer) map.removeLayer(tileLayer);
+  tileLayer = L.tileLayer(TILES[k].url, { attribution: TILES[k].attr, maxZoom: 19 }).addTo(map);
+}
+
+function typeOf(p) {
+  return TYPES.find(t => t.id === p.type_id) || { label: "Sans type", emoji: "\uD83D\uDCCD", color: "#64748b" };
+}
+
+function makeIcon(p) {
+  const t = typeOf(p);
+  const s = STATUS[p.status] || STATUS.todo;
+  let cls = "pin";
+  if (p.status === "visited") cls += " visited";
+  else if (p.prio === "high") cls += " hot";
+  const html = "\u003Cdiv class=\"" + cls + "\" style=\"background:" + t.color + "\"\u003E" +
+    "\u003Ci\u003E" + t.emoji + "\u003C/i\u003E" +
+    "\u003Cspan class=\"st\"\u003E" + s.icon + "\u003C/span\u003E" +
+    "\u003C/div\u003E";
+  return L.divIcon({ html: html, className: "", iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -32] });
+}
+
+/* ============ DATA ============ */
+async function boot() {
+  initMap();
+  await loadTypes();
+  await loadPlaces();
+  await loadNotes();
+  buildFilters();
+  render();
+}
+
+async function loadTypes() {
+  const { data, error } = await sb.from("place_types").select("*").order("sort");
+  if (error) { console.error(error); return; }
+  TYPES = data || [];
+  if (TYPES.length === 0) {
+    const { data: ins } = await sb.from("place_types").insert(DEFAULT_TYPES).select();
+    TYPES = ins || [];
+  }
+}
+async function loadPlaces() {
+  const { data, error } = await sb.from("places").select("*").order("created_at", { ascending: false });
+  if (error) { console.error(error); return; }
+  PLACES = data || [];
+}
+async function loadNotes() {
+  const { data } = await sb.from("notes").select("*").order("created_at", { ascending: false });
+  NOTES = data || [];
+}
+const notesOf = id => NOTES.filter(n => n.place_id === id);
+
+/* ============ FILTERS ============ */
+function buildFilters() {
+  const ct = $("f-types"); ct.innerHTML = "";
+  TYPES.forEach(t => {
+    const n = PLACES.filter(p => p.type_id === t.id).length;
+    const b = document.createElement("button");
+    b.className = "chip" + (F.types.has(t.id) ? " on" : "");
+    b.innerHTML = "\u003Cspan class=\"dot\" style=\"background:" + t.color + "\"\u003E\u003C/span\u003E" +
+      t.emoji + " " + esc(t.label) + " \u003Cspan class=\"n\"\u003E" + n + "\u003C/span\u003E";
+    b.onclick = () => { F.types.has(t.id) ? F.types.delete(t.id) : F.types.add(t.id); buildFilters(); render(); };
+    ct.appendChild(b);
+  });
+
+  const cs = $("f-stat"); cs.innerHTML = "";
+  Object.keys(STATUS).forEach(k => {
+    const n = PLACES.filter(p => (p.status || "todo") === k).length;
+    const b = document.createElement("button");
+    b.className = "chip" + (F.stat.has(k) ? " on" : "");
+    b.innerHTML = "\u003Cspan class=\"dot\" style=\"background:" + STATUS[k].color + "\"\u003E\u003C/span\u003E" +
+      esc(STATUS[k].label) + " \u003Cspan class=\"n\"\u003E" + n + "\u003C/span\u003E";
+    b.onclick = () => { F.stat.has(k) ? F.stat.delete(k) : F.stat.add(k); buildFilters(); render(); };
+    cs.appendChild(b);
+  });
+
+  const cp = $("f-prio"); cp.innerHTML = "";
+  Object.keys(PRIO).forEach(k => {
+    const n = PLACES.filter(p => (p.prio || "mid") === k).length;
+    const b = document.createElement("button");
+    b.className = "chip" + (F.prio.has(k) ? " on" : "");
+    b.innerHTML = "\u003Cspan class=\"dot\" style=\"background:" + PRIO[k].color + "\"\u003E\u003C/span\u003E" +
+      esc(PRIO[k].label) + " \u003Cspan class=\"n\"\u003E" + n + "\u003C/span\u003E";
+    b.onclick = () => { F.prio.has(k) ? F.prio.delete(k) : F.prio.add(k); buildFilters(); render(); };
+    cp.appendChild(b);
+  });
+}
+$("f-types-all").onclick = () => { F.types.clear(); buildFilters(); render(); };
+$("f-stat-all").onclick  = () => { F.stat.clear();  buildFilters(); render(); };
+$("f-prio-all").onclick  = () => { F.prio.clear();  buildFilters(); render(); };
+$("q").oninput = e => { F.q = e.target.value.toLowerCase(); render(); };
+
+function filtered() {
+  return PLACES.filter(p => {
+    if (F.types.size && !F.types.has(p.type_id)) return false;
+    if (F.stat.size  && !F.stat.has(p.status || "todo")) return false;
+    if (F.prio.size  && !F.prio.has(p.prio || "mid")) return false;
+    if (F.q) {
+      const hay = [p.name, p.address, p.contact, p.description, typeOf(p).label]
+        .join(" ").toLowerCase();
+      if (!hay.includes(F.q)) return false;
+    }
+    return true;
   });
 }
 
-function openModal(p){
-  editId = p?.id||null;
-  $('modalTitle').textContent = editId?'Modifier le lieu':'Nouveau lieu';
-  $('delBtn').style.display = editId?'inline-flex':'none';
-  ['name','city','contact','phone','date','notes'].forEach(k=> $('f-'+k).value = p?.[k]||'');
-  $('f-lat').value = p?.lat??''; $('f-lng').value = p?.lng??'';
-  tmpStatus = p?.status||'todo'; tmpPrio = p?.prio||'mid';
-  paintChips();
-  $('overlay').classList.add('on');
-  setTimeout(()=> $('f-name').focus(),80);
-}
-window.openEdit = id => openModal(places.find(p=>p.id===id));
-const closeModal = ()=>{ $('overlay').classList.remove('on'); editId=null; };
-$('modalClose').onclick = closeModal;
-$('cancelBtn').onclick = closeModal;
-$('overlay').onclick = e => { if(e.target===$('overlay')) closeModal(); };
+/* ============ RENDER ============ */
+function render() {
+  const rows = filtered();
+  $("cnt").textContent = rows.length + (rows.length > 1 ? " lieux" : " lieu") +
+    (rows.length !== PLACES.length ? " / " + PLACES.length : "");
 
-$('saveBtn').onclick = async ()=>{
-  const name = $('f-name').value.trim();
-  const lat = parseFloat($('f-lat').value), lng = parseFloat($('f-lng').value);
-  if(!name) return toast('Le nom est obligatoire','var(--danger)');
-  if(isNaN(lat)||isNaN(lng)) return toast('Coordonnées invalides','var(--danger)');
-  const data = {name,lat,lng,
-    city:$('f-city').value.trim(), contact:$('f-contact').value.trim(),
-    phone:$('f-phone').value.trim(), date:$('f-date').value || null,
-    notes:$('f-notes').value.trim(), status:tmpStatus, prio:tmpPrio};
-  if(editId) data.id = editId;
-  closeModal();
-  await upsertPlace(data);
-};
+  layerGroup.clearLayers(); markers = {};
+  rows.forEach(p => {
+    if (p.lat == null || p.lng == null) return;
+    const t = typeOf(p), s = STATUS[p.status] || STATUS.todo;
+    const m = L.marker([p.lat, p.lng], { icon: makeIcon(p) })
+      .bindPopup("\u003Cb\u003E" + esc(p.name) + "\u003C/b\u003E\u003Cbr\u003E" +
+        "\u003Cspan style=\"color:#64748b;font-size:12px\"\u003E" + t.emoji + " " + esc(t.label) +
+        " \u00B7 " + esc(s.label) + "\u003C/span\u003E");
+    m.on("click", () => viewPlace(p.id));
+    m.addTo(layerGroup);
+    markers[p.id] = m;
+  });
 
-$('delBtn').onclick = async ()=>{
-  if(!confirm('Supprimer définitivement ce lieu ?')) return;
-  const id=editId; closeModal(); await deletePlace(id);
-};
-
-/* ══════════════ AJOUT PAR CLIC ══════════════ */
-$('addBtn').onclick = ()=>{ placing=true; $('hint').style.display='block'; $('map').style.cursor='crosshair'; };
-async function onMapClick(e){
-  if(!placing) return;
-  placing=false; $('hint').style.display='none'; $('map').style.cursor='';
-  const {lat,lng}=e.latlng;
-  openModal({lat:+lat.toFixed(6),lng:+lng.toFixed(6)});
-  try{
-    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&accept-language=fr`);
-    const d=await r.json();
-    const city=d.address?.city||d.address?.town||d.address?.village||d.address?.municipality||'';
-    if(city && !$('f-city').value) $('f-city').value=city;
-  }catch(err){}
-}
-document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){
-    if($('overlay').classList.contains('on')) closeModal();
-    if(placing){placing=false; $('hint').style.display='none'; $('map').style.cursor=''}
+  const list = $("list");
+  if (rows.length === 0) {
+    list.innerHTML = "\u003Cdiv class=\"empty\"\u003EAucun lieu ne correspond.\u003Cbr\u003E" +
+      "Ajuste les filtres ou ajoute un lieu.\u003C/div\u003E";
+    return;
   }
-  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();$('search').focus()}
+  list.innerHTML = rows.map(p => {
+    const t = typeOf(p), s = STATUS[p.status] || STATUS.todo;
+    const nb = notesOf(p.id).length;
+    return "\u003Cdiv class=\"card\" style=\"border-left-color:" + t.color + "\" data-id=\"" + p.id + "\"\u003E" +
+      "\u003Cdiv class=\"card-h\"\u003E\u003Cspan\u003E" + t.emoji + "\u003C/span\u003E" +
+      "\u003Cb\u003E" + esc(p.name) + "\u003C/b\u003E" +
+      (p.prio === "high" ? "\u003Cspan title=\"Priorité haute\"\u003E\uD83D\uDD25\u003C/span\u003E" : "") +
+      "\u003C/div\u003E\u003Cdiv class=\"card-meta\"\u003E" +
+      "\u003Cspan class=\"badge\" style=\"background:" + s.color + "22;color:" + s.color + "\"\u003E" +
+      esc(s.label) + "\u003C/span\u003E" +
+      (p.address ? "\u003Cspan\u003E\uD83D\uDCCC " + esc(p.address) + "\u003C/span\u003E" : "") +
+      (p.rdv_date ? "\u003Cspan\u003E\uD83D\uDCC5 " + esc(p.rdv_date) + "\u003C/span\u003E" : "") +
+      (nb ? "\u003Cspan\u003E\uD83D\uDCDD " + nb + "\u003C/span\u003E" : "") +
+      "\u003C/div\u003E\u003C/div\u003E";
+  }).join("");
+  list.querySelectorAll(".card").forEach(c => {
+    c.onclick = () => {
+      const p = PLACES.find(x => x.id === c.dataset.id);
+      if (p && p.lat != null) map.setView([p.lat, p.lng], 12);
+      viewPlace(c.dataset.id);
+    };
+  });
+}
+
+/* ============ MODALS ============ */
+document.querySelectorAll("[data-close]").forEach(b => {
+  b.onclick = () => $(b.dataset.close).classList.remove("on");
+});
+document.querySelectorAll(".modal").forEach(m => {
+  m.onclick = e => { if (e.target === m) m.classList.remove("on"); };
+});
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (placing) { placing = false; document.body.style.cursor = ""; return; }
+  document.querySelectorAll(".modal.on").forEach(m => m.classList.remove("on"));
 });
 
-/* ══════════════ GEOCODING ══════════════ */
-$('geoBtn').onclick = async ()=>{
-  const q=prompt('Adresse, ville ou entreprise à localiser en France :');
-  if(!q) return;
-  toast('Recherche…','var(--accent)');
-  try{
-    const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=fr&limit=1&accept-language=fr&q=${encodeURIComponent(q)}`);
-    const d=await r.json();
-    if(!d.length) return toast('Adresse introuvable','var(--danger)');
-    const lat=+d[0].lat, lng=+d[0].lon;
-    map.flyTo([lat,lng],15,{duration:.9});
-    setTimeout(()=>{ if(confirm(`Trouvé :\n${d[0].display_name}\n\nCréer un lieu ici ?`))
-      openModal({lat:+lat.toFixed(6),lng:+lng.toFixed(6),name:q,city:d[0].display_name.split(',')[1]?.trim()||''});
-    },950);
-  }catch(e){ toast('Erreur réseau','var(--danger)'); }
-};
-
-/* ══════════════ EXPORTS ══════════════ */
-function download(name,content,type){
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([content],{type}));
-  a.download=name; a.click(); URL.revokeObjectURL(a.href);
+function fillSelects() {
+  $("p-type").innerHTML = TYPES.map(t =>
+    "\u003Coption value=\"" + t.id + "\"\u003E" + t.emoji + " " + esc(t.label) + "\u003C/option\u003E").join("");
+  $("p-status").innerHTML = Object.keys(STATUS).map(k =>
+    "\u003Coption value=\"" + k + "\"\u003E" + esc(STATUS[k].label) + "\u003C/option\u003E").join("");
 }
-$('jsonBtn').onclick = ()=>{
-  download(`prospection-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(places,null,2),'application/json');
-  toast('JSON téléchargé ✓');
-};
-$('csvBtn').onclick = ()=>{
-  const head=['Nom','Ville','Statut','Priorité','Contact','Tel/Email','Date RDV','Notes','Lat','Lng'];
-  const rows=places.map(p=>[p.name,p.city,STATUS[p.status]?.label,PRIO[p.prio],p.contact,p.phone,p.date,
-    (p.notes||'').replace(/\n/g,' '),p.lat,p.lng]);
-  const csv='\ufeff'+[head,...rows].map(r=>r.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\n');
-  download(`prospection-${new Date().toISOString().slice(0,10)}.csv`,csv,'text/csv');
-  toast('CSV téléchargé ✓');
-};
 
-/* ══════════════ UTILS ══════════════ */
-function fitAll(){
-  const pts = visible().map(p => [p.lat, p.lng]);
-  if(!pts.length){ map.flyTo([46.6, 2.4], 6, {duration:.8}); return; }
-  if(pts.length === 1){ map.flyTo(pts[0], 12, {duration:.8}); return; }
-  map.flyToBounds(L.latLngBounds(pts), {padding:[70,70], duration:.8, maxZoom:13});
+function openPlace(id, lat, lng) {
+  fillSelects();
+  editId = id || null;
+  const p = id ? PLACES.find(x => x.id === id) : null;
+  $("mp-title").textContent = p ? "Modifier le lieu" : "Nouveau lieu";
+  $("p-del").style.display = p ? "block" : "none";
+  $("p-err").textContent = ""; $("p-geoerr").textContent = "";
+  $("p-name").value    = p ? (p.name || "") : "";
+  $("p-type").value    = p && p.type_id ? p.type_id : (TYPES[0] ? TYPES[0].id : "");
+  $("p-status").value  = p ? (p.status || "todo") : "todo";
+  $("p-prio").value    = p ? (p.prio || "mid") : "mid";
+  $("p-rdv").value     = p ? (p.rdv_date || "") : "";
+  $("p-addr").value    = p ? (p.address || "") : "";
+  $("p-lat").value     = p ? (p.lat != null ? p.lat : "") : (lat != null ? lat.toFixed(6) : "");
+  $("p-lng").value     = p ? (p.lng != null ? p.lng : "") : (lng != null ? lng.toFixed(6) : "");
+  $("p-contact").value = p ? (p.contact || "") : "";
+  $("p-tel").value     = p ? (p.phone || "") : "";
+  $("p-mail").value    = p ? (p.email || "") : "";
+  $("p-web").value     = p ? (p.website || "") : "";
+  $("p-desc").value    = p ? (p.description || "") : "";
+  $("m-place").classList.add("on");
+  setTimeout(() => $("p-name").focus(), 50);
 }
-$('fitBtn').onclick = fitAll;
 
-$('search').oninput = () => render();
+$("btn-add").onclick = () => {
+  placing = true;
+  document.body.style.cursor = "crosshair";
+  alert("Clique sur la carte pour placer le lieu (Échap pour annuler).\nTu peux aussi saisir l'adresse dans le formulaire.");
+};
 
-function esc(s){
-  const map = {
-    '&': '\u0026amp;',
-    '<': '\u0026lt;',
-    '>': '\u0026gt;',
-    '"': '\u0026quot;',
-    "'": '\u0026#39;'
+async function savePlace() {
+  const name = $("p-name").value.trim();
+  if (!name) { $("p-err").textContent = "Le nom est obligatoire."; return; }
+  const lat = parseFloat($("p-lat").value), lng = parseFloat($("p-lng").value);
+  if (isNaN(lat) || isNaN(lng)) { $("p-err").textContent = "Coordonnées manquantes (clique sur la carte ou géocode l'adresse)."; return; }
+  const rec = {
+    name: name,
+    type_id: $("p-type").value || null,
+    status: $("p-status").value,
+    prio: $("p-prio").value,
+    rdv_date: $("p-rdv").value || null,
+    address: $("p-addr").value.trim() || null,
+    lat: lat, lng: lng,
+    contact: $("p-contact").value.trim() || null,
+    phone: $("p-tel").value.trim() || null,
+    email: $("p-mail").value.trim() || null,
+    website: $("p-web").value.trim() || null,
+    description: $("p-desc").value.trim() || null
   };
-  return String(s ?? '').replace(/[&<>"']/g, c => map[c]);
+  $("p-save").textContent = "...";
+  let error;
+  if (editId) ({ error } = await sb.from("places").update(rec).eq("id", editId));
+  else        ({ error } = await sb.from("places").insert(rec));
+  $("p-save").textContent = "Enregistrer";
+  if (error) { $("p-err").textContent = error.message; return; }
+  $("m-place").classList.remove("on");
+  await loadPlaces(); buildFilters(); render();
+}
+$("p-save").onclick = savePlace;
+
+$("p-del").onclick = async () => {
+  if (!editId || !confirm("Supprimer ce lieu et toutes ses notes ?")) return;
+  await sb.from("places").delete().eq("id", editId);
+  $("m-place").classList.remove("on");
+  await loadPlaces(); await loadNotes(); buildFilters(); render();
+};
+
+$("p-geo").onclick = async () => {
+  const q = $("p-addr").value.trim() || $("p-name").value.trim();
+  if (!q) { $("p-geoerr").textContent = "Saisis une adresse ou un nom."; return; }
+  $("p-geoerr").style.color = "#64748b";
+  $("p-geoerr").textContent = "Recherche...";
+  try {
+    const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=fr&q=" +
+      encodeURIComponent(q));
+    const d = await r.json();
+    if (!d.length) { $("p-geoerr").style.color = "#dc2626"; $("p-geoerr").textContent = "Adresse introuvable."; return; }
+    $("p-lat").value = parseFloat(d[0].lat).toFixed(6);
+    $("p-lng").value = parseFloat(d[0].lon).toFixed(6);
+    $("p-geoerr").style.color = "#16a34a";
+    $("p-geoerr").textContent = "Trouvé : " + d[0].display_name.slice(0, 70);
+  } catch (e) {
+    $("p-geoerr").style.color = "#dc2626";
+    $("p-geoerr").textContent = "Erreur réseau.";
+  }
+};
+
+/* ============ VIEW + NOTES ============ */
+function viewPlace(id) {
+  const p = PLACES.find(x => x.id === id);
+  if (!p) return;
+  editId = id;
+  const t = typeOf(p), s = STATUS[p.status] || STATUS.todo, pr = PRIO[p.prio || "mid"];
+  $("mv-title").textContent = t.emoji + " " + p.name;
+
+  let h = "\u003Cdiv style=\"display:flex;gap:7px;flex-wrap:wrap;margin-bottom:15px\"\u003E" +
+    "\u003Cspan class=\"badge\" style=\"background:" + t.color + "22;color:" + t.color + "\"\u003E" + esc(t.label) + "\u003C/span\u003E" +
+    "\u003Cspan class=\"badge\" style=\"background:" + s.color + "22;color:" + s.color + "\"\u003E" + esc(s.label) + "\u003C/span\u003E" +
+    "\u003Cspan class=\"badge\" style=\"background:" + pr.color + "22;color:" + pr.color + "\"\u003EPrio " + esc(pr.label) + "\u003C/span\u003E" +
+    "\u003C/div\u003E";
+
+  const line = (ic, v, href) => v ? "\u003Cdiv style=\"font-size:13.5px;margin-bottom:7px\"\u003E" + ic + " " +
+    (href ? "\u003Ca href=\"" + href + "\" target=\"_blank\" style=\"color:#4f46e5\"\u003E" + esc(v) + "\u003C/a\u003E" : esc(v)) +
+    "\u003C/div\u003E" : "";
+  h += line("\uD83D\uDCCC", p.address);
+  h += line("\uD83D\uDC64", p.contact);
+  h += line("\uD83D\uDCDE", p.phone, p.phone ? "tel:" + p.phone.replace(/\s/g, "") : null);
+  h += line("\u2709\uFE0F", p.email, p.email ? "mailto:" + p.email : null);
+  h += line("\uD83C\uDF10", p.website, p.website);
+  h += line("\uD83D\uDCC5", p.rdv_date ? "RDV le " + p.rdv_date : null);
+  if (p.description)
+    h += "\u003Cdiv style=\"background:#f8fafc;padding:11px;border-radius:9px;font-size:13px;" +
+      "line-height:1.6;margin-top:12px;white-space:pre-wrap\"\u003E" + esc(p.description) + "\u003C/div\u003E";
+
+  h += "\u003Cdiv style=\"margin-top:20px;border-top:1px solid #e2e8f0;padding-top:16px\"\u003E" +
+    "\u003Clabel\u003ENotes de suivi\u003C/label\u003E" +
+    "\u003Cdiv style=\"display:flex;gap:7px;margin-bottom:9px\"\u003E" +
+    "\u003Cselect class=\"inp\" id=\"n-kind\" style=\"width:130px;margin:0\"\u003E" +
+    Object.keys(NOTE_KINDS).map(k => "\u003Coption value=\"" + k + "\"\u003E" +
+      NOTE_KINDS[k].emoji + " " + esc(NOTE_KINDS[k].label) + "\u003C/option\u003E").join("") +
+    "\u003C/select\u003E" +
+    "\u003Cinput class=\"inp\" id=\"n-body\" placeholder=\"Ajouter une note...\" style=\"margin:0\"\u003E" +
+    "\u003Cbutton class=\"btn btn-primary\" id=\"n-add\"\u003E+\u003C/button\u003E" +
+    "\u003C/div\u003E\u003Cdiv id=\"n-list\"\u003E\u003C/div\u003E\u003C/div\u003E";
+
+  $("mv-body").innerHTML = h;
+  renderNotes(id);
+  $("n-add").onclick = () => addNote(id);
+  $("n-body").onkeydown = e => { if (e.key === "Enter") addNote(id); };
+  $("m-view").classList.add("on");
 }
 
-function fmtDate(d){
-  if(!d) return '';
-  const dt = new Date(d + 'T12:00:00');
-  if(isNaN(dt)) return d;
-  const today = new Date(); today.setHours(12,0,0,0);
-  const diff = Math.round((dt - today) / 86400000);
-  const txt = dt.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
-  if(diff === 0)  return `${txt} · aujourd'hui`;
-  if(diff === 1)  return `${txt} · demain`;
-  if(diff === -1) return `${txt} · hier`;
-  if(diff > 1 && diff <= 14)  return `${txt} · J+${diff}`;
-  if(diff < -1) return `${txt} · passé`;
-  return txt;
+function renderNotes(id) {
+  const ns = notesOf(id);
+  const box = $("n-list");
+  if (!box) return;
+  if (!ns.length) {
+    box.innerHTML = "\u003Cdiv style=\"font-size:12.5px;color:#94a3b8;padding:8px 0\"\u003E" +
+      "Aucune note. Ajoute un appel, un mail, une visite...\u003C/div\u003E";
+    return;
+  }
+  box.innerHTML = ns.map(n => {
+    const k = NOTE_KINDS[n.kind] || NOTE_KINDS.other;
+    const d = new Date(n.created_at).toLocaleDateString("fr-FR",
+      { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    return "\u003Cdiv class=\"note\"\u003E" +
+      "\u003Cbutton class=\"note-x\" data-n=\"" + n.id + "\"\u003E\u00D7\u003C/button\u003E" +
+      "\u003Cdiv class=\"note-h\"\u003E\u003Cspan class=\"note-k\"\u003E" + k.emoji + " " + esc(k.label) + "\u003C/span\u003E" +
+      "\u003Cspan\u003E" + d + "\u003C/span\u003E" +
+      (n.author ? "\u003Cspan\u003E\u00B7 " + esc(n.author.split("@")[0]) + "\u003C/span\u003E" : "") +
+      "\u003C/div\u003E\u003Cdiv class=\"note-b\"\u003E" + esc(n.body) + "\u003C/div\u003E\u003C/div\u003E";
+  }).join("");
+  box.querySelectorAll(".note-x").forEach(b => {
+    b.onclick = async () => {
+      await sb.from("notes").delete().eq("id", b.dataset.n);
+      await loadNotes(); renderNotes(id); render();
+    };
+  });
 }
 
-let toastTimer;
-function toast(msg, color = 'var(--ok)'){
-  const t = $('toast');
-  t.textContent = msg;
-  t.style.borderLeftColor = color;
-  t.classList.add('on');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('on'), 2600);
+async function addNote(id) {
+  const body = $("n-body").value.trim();
+  if (!body) return;
+  const rec = { place_id: id, kind: $("n-kind").value, body: body,
+                author: USER ? USER.email : null };
+  const { error } = await sb.from("notes").insert(rec);
+  if (error) { alert(error.message); return; }
+  $("n-body").value = "";
+  await loadNotes(); renderNotes(id); render();
 }
 
-/* Reconnexion propre au retour d'onglet / de veille */
-document.addEventListener('visibilitychange', () => {
-  if(!document.hidden && booted) fetchPlaces();
-});
-window.addEventListener('online',  () => { if(booted) fetchPlaces(); });
-window.addEventListener('offline', () => setSync('off', '● hors ligne'));
+$("mv-edit").onclick = () => { $("m-view").classList.remove("on"); openPlace(editId); };
+
+/* ============ TYPES MANAGER ============ */
+let draftTypes = [];
+$("btn-types").onclick = () => {
+  draftTypes = TYPES.map(t => Object.assign({}, t));
+  renderTypes();
+  $("t-err").textContent = "";
+  $("m-types").classList.add("on");
+};
+function renderTypes() {
+  $("t-list").innerHTML = draftTypes.map((t, i) =>
+    "\u003Cdiv class=\"trow\"\u003E" +
+    "\u003Cinput class=\"em\" type=\"text\" value=\"" + esc(t.emoji) + "\" data-i=\"" + i + "\" data-f=\"emoji\" maxlength=\"4\"\u003E" +
+    "\u003Cinput type=\"text\" value=\"" + esc(t.label) + "\" data-i=\"" + i + "\" data-f=\"label\"\u003E" +
+    "\u003Cinput type=\"color\" value=\"" + esc(t.color) + "\" data-i=\"" + i + "\" data-f=\"color\"\u003E" +
+    "\u003Cbutton class=\"btn btn-danger\" data-del=\"" + i + "\" style=\"padding:6px 9px\"\u003E\u00D7\u003C/button\u003E" +
+    "\u003C/div\u003E").join("");
+  $("t-list").querySelectorAll("input").forEach(inp => {
+    inp.oninput = () => { draftTypes[inp.dataset.i][inp.dataset.f] = inp.value; };
+  });
+  $("t-list").querySelectorAll("[data-del]").forEach(b => {
+    b.onclick = () => {
+      const t = draftTypes[b.dataset.del];
+      const used = PLACES.filter(p => p.type_id === t.id).length;
+      if (used && !confirm(used + " lieu(x) utilisent ce type. Ils passeront en \"Sans type\". Continuer ?")) return;
+      draftTypes.splice(b.dataset.del, 1);
+      renderTypes();
+    };
+  });
+}
+$("t-add").onclick = () => {
+  draftTypes.push({ label: "Nouveau type", emoji: "\uD83D\uDCCD", color: "#6366f1", sort: draftTypes.length + 1 });
+  renderTypes();
+};
+$("t-save").onclick = async () => {
+  $("t-err").textContent = "";
+  const keep = draftTypes.filter(t => t.id).map(t => t.id);
+  const gone = TYPES.filter(t => keep.indexOf(t.id) === -1).map(t => t.id);
+  $("t-save").textContent = "...";
+  try {
+    if (gone.length) await sb.from("place_types").delete().in("id", gone);
+    for (let i = 0; i < draftTypes.length; i++) {
+      const t = draftTypes[i];
+      const rec = { label: t.label.trim() || "Sans nom", emoji: t.emoji || "\uD83D\uDCCD",
+                    color: t.color, sort: i + 1 };
+      if (t.id) await sb.from("place_types").update(rec).eq("id", t.id);
+      else      await sb.from("place_types").insert(rec);
+    }
+    await loadTypes(); await loadPlaces();
+    F.types.clear(); buildFilters(); render();
+    $("m-types").classList.remove("on");
+  } catch (e) {
+    $("t-err").textContent = "Erreur : " + e.message;
+  }
+  $("t-save").textContent = "Enregistrer";
+};
+
+/* ============ DASHBOARD ============ */
+$("tab-map").onclick = () => {
+  $("tab-map").classList.add("on"); $("tab-dash").classList.remove("on");
+  $("side").style.display = ""; $("mapwrap").style.display = ""; $("dash").style.display = "none";
+  $("app").style.gridTemplateColumns = "340px 1fr";
+  setTimeout(() => map.invalidateSize(), 60);
+};
+$("tab-dash").onclick = () => {
+  $("tab-dash").classList.add("on"); $("tab-map").classList.remove("on");
+  $("side").style.display = "none"; $("mapwrap").style.display = "none"; $("dash").style.display = "block";
+  renderDash();
+};
+
+function renderDash() {
+  const tot = PLACES.length;
+  const by = k => PLACES.filter(p => (p.status || "todo") === k).length;
+  const done = by("visited"), rdv = by("rdv"), ko = by("ko");
+  const conv = tot ? Math.round((done + rdv) / tot * 100) : 0;
+  const notesN = NOTES.length;
+
+  let h = "\u003Ch2 style=\"font-size:20px;margin-bottom:18px\"\u003E\uD83D\uDCCA Tableau de bord\u003C/h2\u003E";
+
+  h += "\u003Cdiv class=\"dgrid\"\u003E" +
+    dcard(tot, "Lieux au total", "#4f46e5") +
+    dcard(by("todo"), "À contacter", STATUS.todo.color) +
+    dcard(by("contact"), "Contactés", STATUS.contact.color) +
+    dcard(rdv, "RDV pris", STATUS.rdv.color) +
+    dcard(done, "Visités", STATUS.visited.color) +
+    dcard(conv + "%", "Taux d'avancement", "#0ea5e9") +
+    "\u003C/div\u003E";
+
+  const maxT = Math.max(1, ...TYPES.map(t => PLACES.filter(p => p.type_id === t.id).length));
+  h += "\u003Cdiv class=\"dsec\"\u003E\u003Ch3\u003ERépartition par type\u003C/h3\u003E";
+  TYPES.forEach(t => {
+    const n = PLACES.filter(p => p.type_id === t.id).length;
+    h += "\u003Cdiv class=\"bar\"\u003E\u003Cdiv class=\"nm\"\u003E" + t.emoji + " " + esc(t.label) + "\u003C/div\u003E" +
+      "\u003Cdiv class=\"tr\"\u003E\u003Cdiv class=\"fl\" style=\"width:" + (n / maxT * 100) + "%;background:" + t.color + "\"\u003E\u003C/div\u003E\u003C/div\u003E" +
+      "\u003Cdiv class=\"vv\"\u003E" + n + "\u003C/div\u003E\u003C/div\u003E";
+  });
+  const noType = PLACES.filter(p => !p.type_id).length;
+  if (noType) h += "\u003Cdiv style=\"font-size:12px;color:#94a3b8;margin-top:8px\"\u003E" +
+    noType + " lieu(x) sans type\u003C/div\u003E";
+  h += "\u003C/div\u003E";
+
+  const next = PLACES.filter(p => p.rdv_date).sort((a, b) => a.rdv_date < b.rdv_date ? -1 : 1);
+  h += "\u003Cdiv class=\"dsec\"\u003E\u003Ch3\u003E\uD83D\uDCC5 Prochains rendez-vous\u003C/h3\u003E";
+  if (!next.length) h += "\u003Cdiv style=\"font-size:13px;color:#94a3b8\"\u003EAucun RDV planifié.\u003C/div\u003E";
+  else h += next.slice(0, 10).map(p => {
+    const t = typeOf(p);
+    return "\u003Cdiv style=\"display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13.5px\"\u003E" +
+      "\u003Cb style=\"width:95px;color:#4f46e5;flex:none\"\u003E" + esc(p.rdv_date) + "\u003C/b\u003E" +
+      "\u003Cspan\u003E" + t.emoji + "\u003C/span\u003E\u003Cspan\u003E" + esc(p.name) + "\u003C/span\u003E" +
+      "\u003Cspan style=\"color:#94a3b8;margin-left:auto\"\u003E" + esc(p.address || "") + "\u003C/span\u003E\u003C/div\u003E";
+  }).join("");
+  h += "\u003C/div\u003E";
+
+  h += "\u003Cdiv class=\"dsec\"\u003E\u003Ch3\u003E\uD83D\uDCDD Activité\u003C/h3\u003E" +
+    "\u003Cdiv style=\"font-size:13.5px;color:#475569;line-height:1.8\"\u003E" +
+    notesN + " note(s) de suivi enregistrée(s)\u003Cbr\u003E" +
+    ko + " lieu(x) écarté(s)\u003Cbr\u003E" +
+    "\u003C/div\u003E" +
+    "\u003Cbutton class=\"btn btn-ghost\" id=\"d-csv\" style=\"margin-top:12px\"\u003E\u2B07\uFE0F Exporter en CSV\u003C/button\u003E" +
+    "\u003C/div\u003E";
+
+  $("dash").innerHTML = h;
+  $("d-csv").onclick = exportCsv;
+}
+function dcard(v, l, c) {
+  return "\u003Cdiv class=\"dcard\"\u003E\u003Cdiv class=\"v\" style=\"color:" + c + "\"\u003E" + v + "\u003C/div\u003E" +
+    "\u003Cdiv class=\"l\"\u003E" + l + "\u003C/div\u003E\u003C/div\u003E";
+}
+
+function exportCsv() {
+  const head = ["Nom", "Type", "Statut", "Priorite", "Adresse", "Lat", "Lng",
+                "Contact", "Tel", "Email", "Web", "RDV", "Notes"];
+  const rows = PLACES.map(p => [
+    p.name, typeOf(p).label, (STATUS[p.status] || STATUS.todo).label,
+    (PRIO[p.prio || "mid"]).label, p.address || "", p.lat, p.lng,
+    p.contact || "", p.phone || "", p.email || "", p.website || "",
+    p.rdv_date || "", notesOf(p.id).length
+  ]);
+  const csv = [head].concat(rows)
+    .map(r => r.map(c => "\"" + String(c == null ? "" : c).replace(/"/g, "\"\"") + "\"").join(";"))
+    .join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+  a.download = "prospection-" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.click();
+}
 </script>
 </body>
 </html>
