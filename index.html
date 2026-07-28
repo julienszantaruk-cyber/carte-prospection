@@ -227,7 +227,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ═══════════════════════════════════════════════════════
-   ⚙️  CONFIG — REMPLACE CES 2 LIGNES
+   ⚙️  CONFIG
    ═══════════════════════════════════════════════════════ */
 const SUPA_URL = 'https://hawimjftwmrwljkjsnzu.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhd2ltamZ0d21yd2xqa2pzbnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjk4MTIsImV4cCI6MjEwMDgwNTgxMn0.Ej-PlxrKOd8cL9m3yQfIh3H9AvvDjY_d2xWGZskCz1s';
@@ -301,11 +301,10 @@ function initMap(){
   dark.addTo(map);
   L.control.layers(layers,null,{position:'bottomright'}).addTo(map);
 
-  // Diagnostic : si aucune tuile ne charge en 6s → message clair
   let tileOK = false;
   dark.on('tileload', () => { tileOK = true; $('tileErr').style.display='none'; });
   dark.on('tileerror', () => { if(!tileOK) $('tileErr').style.display='block'; });
-  setTimeout(()=>{ if(!tileOK)  $ ('tileErr').style.display='block'; }, 6000);
+  setTimeout(()=>{ if(!tileOK) $('tileErr').style.display='block'; }, 6000);
 
   // ---- Contour France (frontières + départements) ----
   const FR = 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/';
@@ -322,18 +321,18 @@ function initMap(){
     iconCreateFunction: c => L.divIcon({
       html:`<div style="background:linear-gradient(135deg,#4f8cff,#7c5cff);color:#fff;width:36px;height:36px;
         border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;
-        border:2.5px solid rgba(255,255,255,.85);box-shadow:0 3px 12px rgba(0,0,0,.5)"> $ {c.getChildCount()}</div>`,
+        border:2.5px solid rgba(255,255,255,.85);box-shadow:0 3px 12px rgba(0,0,0,.5)">${c.getChildCount()}</div>`,
       className:'',iconSize:[36,36]})
   }).addTo(map);
 
   map.on('click', onMapClick);
-  $('toggleSide').onclick = ()=>{  $ ('sidebar').classList.toggle('collapsed'); setTimeout(()=>map.invalidateSize(),280); };
+  $('toggleSide').onclick = ()=>{ $('sidebar').classList.toggle('collapsed'); setTimeout(()=>map.invalidateSize(),280); };
   buildChips();
 }
 
 /* ══════════════ DONNÉES SUPABASE ══════════════ */
 function setSync(state,txt){
-  const el= $ ('sync'); el.className=state; el.textContent=txt;
+  const el = $('sync'); el.className=state; el.textContent=txt;
 }
 
 async function fetchPlaces(){
@@ -348,9 +347,11 @@ async function fetchPlaces(){
 function subscribeRealtime(){
   sb.channel('places-live')
     .on('postgres_changes',{event:'*',schema:'public',table:'places'}, payload => {
-      const {eventType,new:n,old:o} = {eventType:payload.eventType,new:payload.new,old:payload.old};
       if(payload.eventType==='INSERT'){
-        if(!places.some(p=>p.id===payload.new.id)){ places.push(payload.new); toast('➕ '+payload.new.name+' (ajouté à distance)','var(--accent)'); }
+        if(!places.some(p=>p.id===payload.new.id)){
+          places.push(payload.new);
+          toast('➕ '+payload.new.name+' (ajouté à distance)','var(--accent)');
+        }
       }
       if(payload.eventType==='UPDATE'){
         places = places.map(p=>p.id===payload.new.id?payload.new:p);
@@ -369,7 +370,7 @@ async function upsertPlace(data){
   const {data:res,error} = await sb.from('places').upsert(payload).select().single();
   if(error){ setSync('off','● erreur'); return toast('Échec : '+error.message,'var(--danger)'); }
   const i = places.findIndex(p=>p.id===res.id);
-  i>=0 ? places[i]=res : places.push(res);
+  if(i>=0){ places[i]=res; } else { places.push(res); }
   setSync('','● en ligne'); render();
   toast(i>=0?'Mis à jour ✓':'Lieu ajouté ✓');
 }
@@ -383,7 +384,7 @@ async function deletePlace(id){
 
 /* ══════════════ RENDU ══════════════ */
 function visible(){
-  const q =  $ ('search').value.toLowerCase().trim();
+  const q = $('search').value.toLowerCase().trim();
   return places.filter(p=>{
     if(filterStatus && p.status!==filterStatus) return false;
     if(!q) return true;
@@ -394,7 +395,7 @@ function visible(){
 function makeIcon(p){
   const s = STATUS[p.status]||STATUS.todo;
   const ring = p.prio==='high' ? 'box-shadow:0 0 0 4px rgba(255,92,92,.3),0 3px 10px rgba(0,0,0,.5);' : '';
-  return L.divIcon({html:`<div class="pin" style="background: $ {s.color};${ring}"><i>${s.icon}</i></div>`,
+  return L.divIcon({html:`<div class="pin" style="background:${s.color};${ring}"><i>${s.icon}</i></div>`,
     className:'',iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-30]});
 }
 
@@ -430,7 +431,8 @@ function popupHtml(p){
 function renderList(){
   const items = visible().slice().sort((a,b)=>{
     const w={high:0,mid:1,low:2};
-    if(a.date&&!b.date) return -1; if(!a.date&&b.date) return 1;
+    if(a.date&&!b.date) return -1;
+    if(!a.date&&b.date) return 1;
     if(a.date&&b.date&&a.date!==b.date) return a.date<b.date?-1:1;
     return (w[a.prio]??1)-(w[b.prio]??1);
   });
@@ -460,7 +462,7 @@ function renderStats(){
     return `<div class="stat ${filterStatus===k?'active':''}" onclick="toggleFilter('${k}')" title="${s.label}">
       <b style="color:${s.color}">${c[k]||0}</b><span>${s.label.split(' ')[0]}</span></div>`;
   }).join('');
-   $ ('subtitle').textContent = ` $ {places.length} lieu${places.length>1?'x':''} • ${c.rdv||0} RDV`;
+  $('subtitle').textContent = `${places.length} lieu${places.length>1?'x':''} • ${c.rdv||0} RDV`;
 }
 
 window.toggleFilter = k => { filterStatus = filterStatus===k?null:k; render(); };
@@ -475,10 +477,10 @@ window.focusPlace = id => {
 /* ══════════════ MODAL ══════════════ */
 let tmpStatus='todo', tmpPrio='mid';
 function buildChips(){
-   $ ('f-status').innerHTML = Object.entries(STATUS).map(([k,s])=>
-    `<div class="chip" data-k=" $ {k}" data-c="${s.color}">${s.icon} ${s.label}</div>`).join('');
-   $ ('f-prio').innerHTML = Object.entries(PRIO).map(([k,l])=>
-    `<div class="chip" data-k=" $ {k}" data-c="${k==='high'?'#ff5c5c':k==='mid'?'#4f8cff':'#8b95a7'}">${l}</div>`).join('');
+  $('f-status').innerHTML = Object.entries(STATUS).map(([k,s])=>
+    `<div class="chip" data-k="${k}" data-c="${s.color}">${s.icon} ${s.label}</div>`).join('');
+  $('f-prio').innerHTML = Object.entries(PRIO).map(([k,l])=>
+    `<div class="chip" data-k="${k}" data-c="${k==='high'?'#ff5c5c':k==='mid'?'#4f8cff':'#8b95a7'}">${l}</div>`).join('');
   document.querySelectorAll('#f-status .chip').forEach(c=>c.onclick=()=>{tmpStatus=c.dataset.k;paintChips()});
   document.querySelectorAll('#f-prio .chip').forEach(c=>c.onclick=()=>{tmpPrio=c.dataset.k;paintChips()});
 }
@@ -496,26 +498,28 @@ function paintChips(){
 function openModal(p){
   editId = p?.id||null;
   $('modalTitle').textContent = editId?'Modifier le lieu':'Nouveau lieu';
-   $ ('delBtn').style.display = editId?'inline-flex':'none';
-  ['name','city','contact','phone','date','notes'].forEach(k=> $ ('f-'+k).value = p?.[k]||'');
+  $('delBtn').style.display = editId?'inline-flex':'none';
+  ['name','city','contact','phone','date','notes'].forEach(k=> $('f-'+k).value = p?.[k]||'');
   $('f-lat').value = p?.lat??''; $('f-lng').value = p?.lng??'';
   tmpStatus = p?.status||'todo'; tmpPrio = p?.prio||'mid';
-  paintChips();  $ ('overlay').classList.add('on');
-  setTimeout(()=> $ ('f-name').focus(),80);
+  paintChips();
+  $('overlay').classList.add('on');
+  setTimeout(()=> $('f-name').focus(),80);
 }
 window.openEdit = id => openModal(places.find(p=>p.id===id));
 const closeModal = ()=>{ $('overlay').classList.remove('on'); editId=null; };
-$('modalClose').onclick = closeModal; $('cancelBtn').onclick = closeModal;
- $ ('overlay').onclick = e => { if(e.target=== $ ('overlay')) closeModal(); };
+$('modalClose').onclick = closeModal;
+$('cancelBtn').onclick = closeModal;
+$('overlay').onclick = e => { if(e.target===$('overlay')) closeModal(); };
 
- $ ('saveBtn').onclick = async ()=>{
-  const name= $ ('f-name').value.trim();
-  const lat=parseFloat( $ ('f-lat').value), lng=parseFloat( $ ('f-lng').value);
+$('saveBtn').onclick = async ()=>{
+  const name = $('f-name').value.trim();
+  const lat = parseFloat($('f-lat').value), lng = parseFloat($('f-lng').value);
   if(!name) return toast('Le nom est obligatoire','var(--danger)');
   if(isNaN(lat)||isNaN(lng)) return toast('Coordonnées invalides','var(--danger)');
   const data = {name,lat,lng,
-    city: $ ('f-city').value.trim(), contact: $ ('f-contact').value.trim(),
-    phone: $ ('f-phone').value.trim(), date: $ ('f-date').value,
+    city:$('f-city').value.trim(), contact:$('f-contact').value.trim(),
+    phone:$('f-phone').value.trim(), date:$('f-date').value || null,
     notes:$('f-notes').value.trim(), status:tmpStatus, prio:tmpPrio};
   if(editId) data.id = editId;
   closeModal();
@@ -531,31 +535,31 @@ $('delBtn').onclick = async ()=>{
 $('addBtn').onclick = ()=>{ placing=true; $('hint').style.display='block'; $('map').style.cursor='crosshair'; };
 async function onMapClick(e){
   if(!placing) return;
-  placing=false; $('hint').style.display='none';  $ ('map').style.cursor='';
+  placing=false; $('hint').style.display='none'; $('map').style.cursor='';
   const {lat,lng}=e.latlng;
   openModal({lat:+lat.toFixed(6),lng:+lng.toFixed(6)});
   try{
-    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat= $ {lat}&lon=${lng}&zoom=10&accept-language=fr`);
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&accept-language=fr`);
     const d=await r.json();
     const city=d.address?.city||d.address?.town||d.address?.village||d.address?.municipality||'';
-    if(city && !$('f-city').value)  $ ('f-city').value=city;
+    if(city && !$('f-city').value) $('f-city').value=city;
   }catch(err){}
 }
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
-    if( $ ('overlay').classList.contains('on')) closeModal();
-    if(placing){placing=false; $ ('hint').style.display='none'; $ ('map').style.cursor=''}
+    if($('overlay').classList.contains('on')) closeModal();
+    if(placing){placing=false; $('hint').style.display='none'; $('map').style.cursor=''}
   }
   if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();$('search').focus()}
 });
 
 /* ══════════════ GEOCODING ══════════════ */
- $ ('geoBtn').onclick = async ()=>{
+$('geoBtn').onclick = async ()=>{
   const q=prompt('Adresse, ville ou entreprise à localiser en France :');
   if(!q) return;
   toast('Recherche…','var(--accent)');
   try{
-    const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=fr&limit=1&accept-language=fr&q= $ {encodeURIComponent(q)}`);
+    const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=fr&limit=1&accept-language=fr&q=${encodeURIComponent(q)}`);
     const d=await r.json();
     if(!d.length) return toast('Adresse introuvable','var(--danger)');
     const lat=+d[0].lat, lng=+d[0].lon;
@@ -572,15 +576,15 @@ function download(name,content,type){
   a.href=URL.createObjectURL(new Blob([content],{type}));
   a.download=name; a.click(); URL.revokeObjectURL(a.href);
 }
- $ ('jsonBtn').onclick = ()=>{
-  download(`prospection- $ {new Date().toISOString().slice(0,10)}.json`, JSON.stringify(places,null,2),'application/json');
+$('jsonBtn').onclick = ()=>{
+  download(`prospection-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(places,null,2),'application/json');
   toast('JSON téléchargé ✓');
 };
- $ ('csvBtn').onclick = ()=>{
+$('csvBtn').onclick = ()=>{
   const head=['Nom','Ville','Statut','Priorité','Contact','Tel/Email','Date RDV','Notes','Lat','Lng'];
   const rows=places.map(p=>[p.name,p.city,STATUS[p.status]?.label,PRIO[p.prio],p.contact,p.phone,p.date,
     (p.notes||'').replace(/\n/g,' '),p.lat,p.lng]);
-  const csv='\ufeff'+[head,...rows].map(r=>r.map(c=>`" $ {String(c??'').replace(/"/g,'""')}"`).join(';')).join('\n');
+  const csv='\ufeff'+[head,...rows].map(r=>r.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\n');
   download(`prospection-${new Date().toISOString().slice(0,10)}.csv`,csv,'text/csv');
   toast('CSV téléchargé ✓');
 };
@@ -597,8 +601,9 @@ $('fitBtn').onclick = fitAll;
 $('search').oninput = () => render();
 
 function esc(s){
-  return String(s ?? '').replace(/[&<>"']/g, c =>
-    ({'&':'&','<':'<','>':'>','"':'"',"'":'''}[c]));
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&', '<':'<', '>':'>', '"':'"', "'":'''
+  }[c]));
 }
 
 function fmtDate(d){
