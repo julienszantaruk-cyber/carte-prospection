@@ -12,14 +12,14 @@ let openCb = () => {};
 
 export function initList(onOpen){
   openCb = onOpen || openCb;
-  EL['side-list']?.addEventListener('click', (e) => {
+  EL['ui-list']?.addEventListener('click', (e) => {
     const row = e.target.closest('[data-id]');
     if (row) openCb(row.dataset.id);
   });
 }
 
 export function render(){
-  const box = EL['side-list'];
+  const box = EL['ui-list'];
   if (!box) return;
 
   if (!S.view.length){
