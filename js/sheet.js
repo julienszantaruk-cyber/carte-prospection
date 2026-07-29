@@ -9,6 +9,7 @@ import { STATUSES, RELATIONS, PRIORITIES, STARS_MAX } from './config.js';
 import { computeScore, scoreCoverage, scoreBadge } from './score.js';
 import * as data from './data.js';
 import { ok, err, info, confirmBox } from './toast.js';
+import { startPick } from './map.js';
 
 let afterSave = () => {};
 let draft     = null;
@@ -574,10 +575,18 @@ export function initSheet(onChange){
   on('btn-dup',         'click', duplicate);
   on('btn-geocode',     'click', geocode);
 
-  on('btn-pick-map', 'click', () => {
+    on('btn-pick-map', 'click', () => {
     if (!draft) return;
-    setPickMode(!pickMode);
-    if (pickMode) info('Clique sur la carte pour poser le point.');
+    setPickMode(true);
+    info('Clique sur la carte pour poser le point.');
+    startPick((lat, lng) => {
+      draft.lat = lat;
+      draft.lng = lng;
+      setVal('f-lat', lat.toFixed(6));
+      setVal('f-lng', lng.toFixed(6));
+      setPickMode(false);
+      ok(`Coordonnées relevées : ${lat}, ${lng}`);
+    });
   });
 
   /* Favori */
