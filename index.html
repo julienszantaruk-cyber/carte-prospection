@@ -2,3561 +2,559 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prospection lieux culturels</title>
 <meta name="color-scheme" content="dark">
-<title>Prospection · Lieux culturels</title>
 
-<!-- ═══════════════════════════════════════════════════════════════════════
-     REGISTRE DES IDS — SOURCE DE VÉRITÉ UNIQUE
-     ─────────────────────────────────────────────────────────────────────
-     Toute modification ici doit être répercutée dans REQUIRED_IDS (§3 du JS).
-     assertDom() échoue au boot si un id manque. Aucun querySelector dispersé.
+<!--
+═══════════════════════════════════════════════════════════════
+INVENTAIRE DES IDS — source de vérité unique
+Toute référence JS passe par EL["..."] (voir js/dom.js).
+Ajouter un id ici ⇒ l'ajouter dans REQUIRED_IDS de js/dom.js.
+═══════════════════════════════════════════════════════════════
 
-     CONVENTION
-       btn-*  bouton d'action          flt-*  contrôle de filtre
-       f-*    champ de fiche (GÉNÉRÉ)  m-*    modale
-       v-*    vue                      ui-*   zone d'affichage
-       app-*  structure applicative    auth-* écran de connexion
+v-*   VUES / ÉCRANS
+  v-auth v-app v-map v-table v-dash
 
-     ══ app-* · STRUCTURE ═════════════════════════════════════════════════
-       app-root app-shell app-topbar app-tabs app-body
-       app-sidebar app-main app-overlay app-toasts
+ui-*  ZONES D'AFFICHAGE
+  ui-toasts ui-user-email ui-auth-msg
+  ui-list ui-count ui-empty
+  ui-filter-count ui-active-filters
+  ui-map ui-table-head ui-table-body ui-table-empty
+  ui-kpi-count ui-kpi-score ui-kpi-surface ui-kpi-rent ui-kpi-fav
+  ui-dist-type ui-dist-status ui-dist-priority ui-top5
+  ui-sheet ui-sheet-title ui-sheet-sub ui-ratings ui-score-live ui-logs
+  ui-types-list ui-criteria-list ui-cols-list
+  ui-io-preview ui-io-report
+  ui-confirm-title ui-confirm-text
 
-     ══ auth-* · CONNEXION ════════════════════════════════════════════════
-       auth-screen auth-form auth-title auth-email auth-pass
-       auth-submit auth-toggle auth-msg auth-mode-label
+btn-* BOUTONS
+  btn-login btn-logout
+  btn-view-map btn-view-table btn-view-dash
+  btn-new btn-fit btn-locate btn-pick
+  btn-search-clear btn-filters-reset btn-filters-toggle
+  btn-preset-recent btn-preset-top btn-preset-todo btn-preset-fav
+  btn-sheet-close btn-save btn-fav btn-dup btn-del
+  btn-geocode btn-pick-map btn-log-add
+  btn-settings btn-types btn-criteria btn-cols btn-io btn-recalc
+  btn-type-add btn-criteria-add btn-criteria-preset
+  btn-export btn-import btn-import-file
+  btn-confirm-ok btn-confirm-cancel
 
-     ══ v-* · VUES ════════════════════════════════════════════════════════
-       v-map v-table v-dash
-       v-map-canvas          (conteneur Leaflet)
+f-*   CHAMPS FICHE LIEU
+  f-name f-type f-relation f-description f-opened-year
+  f-address f-city f-zip f-country f-lat f-lng
+  f-contact-name f-email f-phone f-website f-social f-tags f-tags-input
+  f-legal-form f-governance f-owner f-team-fte f-volunteers
+  f-business-model f-revenue-sources f-revenue-input
+  f-budget-annual f-subsidy-pct f-funders f-business-notes
+  f-activities f-activities-input f-studios-count f-residents-year f-audience-year
+  f-surface-total f-surface-expo f-ceiling-h f-floors f-tenure
+  f-rent-month f-charges-month f-lease-end
+  f-features f-features-input f-transport f-constraints
+  f-strengths f-weaknesses f-takeaway
+  f-status f-priority f-visit-date f-next-date f-next-action f-links
+  f-log-body
+  f-auth-email f-auth-password
 
-     ══ btn-* · BOUTONS ═══════════════════════════════════════════════════
-       -- topbar
-       btn-logout btn-new btn-io btn-types btn-criteria btn-columns
-       btn-sidebar-toggle
-       -- onglets
-       btn-tab-map btn-tab-table btn-tab-dash
-       -- carte
-       btn-map-fit btn-map-locate btn-map-pin btn-map-viewport
-       -- filtres
-       btn-filters-reset btn-filters-toggle
-       btn-preset-recent btn-preset-top btn-preset-todo btn-preset-fav
-       -- fiche
-       btn-sheet-close btn-sheet-save btn-sheet-fav
-       btn-sheet-dup btn-sheet-del
-       btn-geocode btn-pin-from-sheet
-       btn-log-add
-       -- settings types
-       btn-type-add
-       -- settings criteria
-       btn-criteria-add btn-criteria-preset
-       -- io
-       btn-io-export btn-io-import btn-io-file
-       -- modales génériques
-       btn-confirm-ok btn-confirm-cancel
+flt-* FILTRES
+  flt-search flt-type flt-legal-form flt-governance flt-business-model
+  flt-status flt-relation flt-priority
+  flt-score flt-score-val flt-surface-min flt-surface-max
+  flt-fav flt-in-view flt-sort
 
-     ══ flt-* · FILTRES ═══════════════════════════════════════════════════
-       flt-search
-       flt-type flt-legal flt-gov flt-model flt-status flt-relation flt-priority
-       flt-score flt-score-val
-       flt-surface-min flt-surface-max
-       flt-fav
-       flt-sort
-       flt-viewport
+m-*   MODALES
+  m-types m-criteria m-cols m-io m-confirm
+  m-io-scope m-io-format m-io-logs m-io-ratings m-io-file
 
-     ══ ui-* · AFFICHAGE ══════════════════════════════════════════════════
-       -- topbar / compteurs
-       ui-user-email ui-count ui-filters-badge
-       -- panneau latéral
-       ui-list ui-list-empty
-       -- tableau
-       ui-table ui-thead ui-tbody ui-table-empty
-       -- dashboard
-       ui-kpi-count ui-kpi-score ui-kpi-surface ui-kpi-rent
-       ui-dist-status ui-dist-type ui-dist-priority ui-top5
-       -- fiche
-       ui-sheet ui-sheet-title ui-sheet-sub ui-sheet-sections
-       ui-sheet-dirty
-       ui-ratings ui-score-live
-       ui-logs
-       -- settings
-       ui-types-list ui-criteria-list ui-columns-list
-       -- io
-       ui-io-preview ui-io-report
-       -- divers
-       ui-loading
-
-     ══ m-* · MODALES ═════════════════════════════════════════════════════
-       m-types m-criteria m-columns m-io m-confirm
-       m-confirm-title m-confirm-body
-       m-io-scope m-io-format m-io-logs m-io-ratings
-       m-criteria-preset-select
-
-     ══ f-* · CHAMPS DE FICHE ═════════════════════════════════════════════
-       GÉNÉRÉS par buildSheet() depuis le schéma FIELDS (§1 du JS).
-       Ne PAS écrire de f-* en dur ici. Vérifiés par assertFields().
-     ═══════════════════════════════════════════════════════════════════════ -->
+set-* SETTINGS
+  set-type-label set-type-emoji set-type-color
+  set-criteria-label set-criteria-weight
+═══════════════════════════════════════════════════════════════
+-->
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-
-<style>
-/* ═══════════════════════════════════════════════════════════════════════
-   CSS · SOMMAIRE
-   1 tokens · 2 reset · 3 primitives · 4 layout · 5 topbar · 6 sidebar
-   7 carte · 8 tableau · 9 dashboard · 10 fiche · 11 modales
-   12 toasts · 13 auth · 14 responsive
-   ═══════════════════════════════════════════════════════════════════════ */
-
-/* ── 1 · TOKENS ───────────────────────────────────────────────────────── */
-:root{
-  --bg:#0b0e14;        --bg-1:#11151f;      --bg-2:#171c28;
-  --bg-3:#1e2433;      --bg-hover:#252c3d;
-  --bd:#2a3244;        --bd-2:#374056;
-  --tx:#e6e9f0;        --tx-2:#98a2b8;      --tx-3:#616b83;
-  --ac:#6366f1;        --ac-2:#818cf8;      --ac-dim:#6366f120;
-  --ok:#10b981;        --warn:#f59e0b;      --err:#ef4444;
-  --star:#fbbf24;
-  --r:10px;            --r-s:6px;           --r-l:16px;
-  --sh:0 4px 24px #0008;
-  --sh-l:0 12px 48px #000c;
-  --ff:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
-  --fm:ui-monospace,SFMono-Regular,Menlo,monospace;
-  --sb:340px;          /* largeur sidebar  */
-  --tb:56px;           /* hauteur topbar   */
-  --sheet:min(560px,100vw);
-}
-
-/* ── 2 · RESET ────────────────────────────────────────────────────────── */
-*,*::before,*::after{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;font-family:var(--ff);font-size:14px;line-height:1.5;
-  background:var(--bg);color:var(--tx);
-  -webkit-font-smoothing:antialiased;overscroll-behavior:none;
-}
-h1,h2,h3,h4,p{margin:0}
-button{font:inherit;color:inherit;cursor:pointer}
-input,select,textarea{font:inherit;color:inherit}
-[hidden]{display:none!important}
-::-webkit-scrollbar{width:10px;height:10px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--bd);border-radius:5px;border:2px solid var(--bg)}
-::-webkit-scrollbar-thumb:hover{background:var(--bd-2)}
-:focus-visible{outline:2px solid var(--ac-2);outline-offset:2px}
-
-/* ── 3 · PRIMITIVES ───────────────────────────────────────────────────── */
-.btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  padding:8px 13px;border:1px solid var(--bd);border-radius:var(--r-s);
-  background:var(--bg-2);color:var(--tx);font-size:13px;font-weight:500;
-  white-space:nowrap;transition:background .12s,border-color .12s;
-  min-height:36px;
-}
-.btn:hover{background:var(--bg-hover);border-color:var(--bd-2)}
-.btn:active{transform:translateY(1px)}
-.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
-.btn.pri:hover{background:var(--ac-2);border-color:var(--ac-2)}
-.btn.dang{color:var(--err);border-color:#ef444440}
-.btn.dang:hover{background:#ef444418;border-color:var(--err)}
-.btn.sm{padding:5px 9px;font-size:12px;min-height:28px}
-.btn.ico{padding:8px;width:36px}
-.btn.ico.sm{padding:4px;width:28px}
-.btn.on{background:var(--ac-dim);border-color:var(--ac);color:var(--ac-2)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-
-.inp,.sel,.ta{
-  width:100%;padding:8px 10px;background:var(--bg-1);
-  border:1px solid var(--bd);border-radius:var(--r-s);
-  color:var(--tx);font-size:13px;transition:border-color .12s;
-}
-.inp:focus,.sel:focus,.ta:focus{outline:none;border-color:var(--ac)}
-.inp::placeholder,.ta::placeholder{color:var(--tx-3)}
-.ta{resize:vertical;min-height:70px;line-height:1.55}
-.sel{cursor:pointer;appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%2398a2b8' stroke-width='1.6'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
-input[type=color]{padding:2px;height:34px;cursor:pointer}
-input[type=range]{
-  -webkit-appearance:none;appearance:none;width:100%;height:4px;
-  background:var(--bd);border-radius:2px;cursor:pointer;padding:0;
-}
-input[type=range]::-webkit-slider-thumb{
-  -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
-  background:var(--ac-2);border:2px solid var(--bg-1);cursor:pointer}
-input[type=range]::-moz-range-thumb{
-  width:14px;height:14px;border-radius:50%;background:var(--ac-2);
-  border:2px solid var(--bg-1);cursor:pointer;border:none}
-
-.lbl{display:block;font-size:11px;font-weight:600;color:var(--tx-2);
-  text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
-.chk{display:inline-flex;align-items:center;gap:7px;cursor:pointer;
-  font-size:13px;user-select:none}
-.chk input{width:15px;height:15px;accent-color:var(--ac);cursor:pointer;margin:0}
-
-.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;
-  border-radius:99px;font-size:11px;font-weight:600;background:var(--bg-3);
-  color:var(--tx-2);white-space:nowrap}
-.badge.ac{background:var(--ac-dim);color:var(--ac-2)}
-.badge.ok{background:#10b98120;color:var(--ok)}
-.badge.warn{background:#f59e0b20;color:var(--warn)}
-.badge.err{background:#ef444420;color:var(--err)}
-
-.stars{color:var(--star);letter-spacing:1px;font-size:12px;white-space:nowrap}
-.muted{color:var(--tx-2)}
-.dim{color:var(--tx-3)}
-.mono{font-family:var(--fm);font-size:12px}
-.row{display:flex;gap:8px;align-items:center}
-.row.wrap{flex-wrap:wrap}
-.grow{flex:1;min-width:0}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
-
-/* tags */
-.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
-.tag{display:inline-flex;align-items:center;gap:5px;padding:3px 6px 3px 9px;
-  background:var(--bg-3);border:1px solid var(--bd);border-radius:99px;font-size:12px}
-.tag button{background:none;border:none;padding:0 2px;color:var(--tx-3);
-  font-size:15px;line-height:1;cursor:pointer}
-.tag button:hover{color:var(--err)}
-
-/* ── 4 · LAYOUT ───────────────────────────────────────────────────────── */
-#app-shell{display:flex;flex-direction:column;height:100vh;height:100dvh}
-#app-body{flex:1;display:flex;min-height:0;position:relative}
-#app-main{flex:1;position:relative;min-width:0;overflow:hidden}
-#app-overlay{position:fixed;inset:0;background:#000a;z-index:800;
-  backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .2s}
-#app-overlay.on{opacity:1;pointer-events:auto}
-
-/* ── 5 · TOPBAR ───────────────────────────────────────────────────────── */
-#app-topbar{
-  height:var(--tb);flex-shrink:0;display:flex;align-items:center;gap:8px;
-  padding:0 12px;background:var(--bg-1);border-bottom:1px solid var(--bd);z-index:400}
-.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;
-  margin-right:4px;white-space:nowrap}
-.brand span{font-size:18px}
-#app-tabs{display:flex;gap:2px;background:var(--bg-2);padding:3px;
-  border-radius:var(--r-s);border:1px solid var(--bd)}
-#app-tabs .btn{border:none;background:none;min-height:30px;padding:5px 12px}
-#app-tabs .btn.on{background:var(--ac);color:#fff}
-#ui-user-email{font-size:12px;color:var(--tx-2);max-width:170px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#ui-filters-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;
-  border-radius:99px;background:var(--ac);color:#fff;font-size:10px;font-weight:700;
-  display:flex;align-items:center;justify-content:center;padding:0 4px}
-.rel{position:relative}
-
-/* ── 6 · SIDEBAR ──────────────────────────────────────────────────────── */
-#app-sidebar{
-  width:var(--sb);flex-shrink:0;display:flex;flex-direction:column;
-  background:var(--bg-1);border-right:1px solid var(--bd);min-height:0;z-index:300}
-#app-sidebar.hide{display:none}
-.sb-top{padding:10px;border-bottom:1px solid var(--bd);display:flex;
-  flex-direction:column;gap:8px;flex-shrink:0}
-.sb-presets{display:flex;gap:5px;flex-wrap:wrap}
-.sb-presets .btn{flex:1;min-width:64px;padding:5px 6px;font-size:11px;min-height:26px}
-.sb-filters{border-bottom:1px solid var(--bd);flex-shrink:0;
-  max-height:44vh;overflow-y:auto}
-.sb-filters.hide{display:none}
-.sb-filters-in{padding:10px;display:flex;flex-direction:column;gap:11px}
-.sb-count{display:flex;align-items:center;justify-content:space-between;
-  padding:7px 12px;font-size:11px;color:var(--tx-2);background:var(--bg-2);
-  border-bottom:1px solid var(--bd);flex-shrink:0;
-  text-transform:uppercase;letter-spacing:.05em;font-weight:600}
-#ui-list{flex:1;overflow-y:auto;padding:8px;display:flex;
-  flex-direction:column;gap:6px;min-height:0}
-
-/* multi-select natif compact */
-.msel{width:100%;background:var(--bg-1);border:1px solid var(--bd);
-  border-radius:var(--r-s);padding:4px;font-size:12px;min-height:auto}
-.msel:focus{outline:none;border-color:var(--ac)}
-.msel option{padding:3px 5px;border-radius:3px}
-.msel option:checked{background:var(--ac) linear-gradient(0deg,var(--ac),var(--ac));color:#fff}
-
-/* carte de lieu */
-.pcard{display:flex;gap:9px;padding:9px;background:var(--bg-2);
-  border:1px solid var(--bd);border-left:3px solid var(--bd-2);
-  border-radius:var(--r-s);cursor:pointer;transition:background .12s,border-color .12s}
-.pcard:hover{background:var(--bg-hover)}
-.pcard.on{border-color:var(--ac);background:var(--ac-dim);border-left-color:var(--ac)}
-.pcard-em{font-size:19px;line-height:1.25;flex-shrink:0}
-.pcard-bd{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.pcard-t{display:flex;align-items:flex-start;gap:6px}
-.pcard-n{font-weight:600;font-size:13px;flex:1;min-width:0;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pcard-fav{background:none;border:none;padding:0;font-size:13px;
-  line-height:1;flex-shrink:0;opacity:.28}
-.pcard-fav.on{opacity:1}
-.pcard-m{font-size:11px;color:var(--tx-2);overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap}
-.pcard-b{display:flex;gap:4px;flex-wrap:wrap;margin-top:1px}
-.empty{padding:36px 20px;text-align:center;color:var(--tx-3);font-size:13px}
-.empty b{display:block;color:var(--tx-2);margin-bottom:5px;font-size:14px}
-
-/* ── 7 · CARTE ────────────────────────────────────────────────────────── */
-#v-map,#v-table,#v-dash{position:absolute;inset:0;display:none;overflow:auto}
-#v-map.on,#v-table.on,#v-dash.on{display:block}
-#v-map-canvas{position:absolute;inset:0;background:var(--bg)}
-.map-ctrl{position:absolute;top:10px;right:10px;z-index:500;
-  display:flex;flex-direction:column;gap:5px}
-.map-ctrl .btn{box-shadow:var(--sh);background:var(--bg-1)}
-.map-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
-  z-index:500;padding:8px 15px;background:var(--ac);color:#fff;
-  border-radius:99px;font-size:12px;font-weight:600;box-shadow:var(--sh);
-  pointer-events:none}
-.leaflet-container{background:var(--bg)!important;font-family:var(--ff)}
-.leaflet-container.pinning{cursor:crosshair!important}
-.leaflet-popup-content-wrapper{background:var(--bg-2);color:var(--tx);
-  border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--sh-l)}
-.leaflet-popup-tip{background:var(--bg-2);border:1px solid var(--bd)}
-.leaflet-popup-content{margin:11px 13px;font-size:13px;min-width:170px}
-.leaflet-popup-close-button{color:var(--tx-2)!important}
-.leaflet-bar a{background:var(--bg-1)!important;color:var(--tx)!important;
-  border-color:var(--bd)!important}
-.leaflet-bar a:hover{background:var(--bg-hover)!important}
-.leaflet-control-attribution{background:#0b0e14cc!important;color:var(--tx-3)!important}
-.leaflet-control-attribution a{color:var(--tx-2)!important}
-
-.mk{display:flex;align-items:center;justify-content:center;
-  width:28px;height:28px;border-radius:50% 50% 50% 2px;transform:rotate(-45deg);
-  border:2px solid #fff2;box-shadow:0 2px 8px #000a;font-size:13px}
-.mk>span{transform:rotate(45deg)}
-.mk.on{outline:3px solid var(--ac-2);outline-offset:2px;z-index:1000}
-.pop-t{font-weight:700;margin-bottom:3px;font-size:14px}
-.pop-m{font-size:11px;color:var(--tx-2);margin-bottom:6px}
-.pop .btn{width:100%;margin-top:7px}
-
-/* ── 8 · TABLEAU ──────────────────────────────────────────────────────── */
-#v-table{padding:0}
-.tw{overflow:auto;height:100%}
-#ui-table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
-#ui-table th,#ui-table td{padding:7px 10px;text-align:left;
-  border-bottom:1px solid var(--bd);white-space:nowrap}
-#ui-table th{background:var(--bg-2);position:sticky;top:0;z-index:10;
-  font-size:11px;text-transform:uppercase;letter-spacing:.04em;
-  color:var(--tx-2);font-weight:700;cursor:pointer;user-select:none}
-#ui-table th:hover{background:var(--bg-3);color:var(--tx)}
-#ui-table tbody tr{cursor:pointer}
-#ui-table tbody tr:hover{background:var(--bg-2)}
-#ui-table tbody tr.on{background:var(--ac-dim)}
-#ui-table td.num{text-align:right;font-family:var(--fm);font-size:12px}
-#ui-table td.tr{max-width:230px;overflow:hidden;text-overflow:ellipsis}
-
-/* ── 9 · DASHBOARD ────────────────────────────────────────────────────── */
-#v-dash{padding:18px}
-.dash{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:11px}
-.kpi{padding:15px;background:var(--bg-1);border:1px solid var(--bd);
-  border-radius:var(--r)}
-.kpi-l{font-size:11px;color:var(--tx-2);text-transform:uppercase;
-  letter-spacing:.05em;margin-bottom:6px;font-weight:600}
-.kpi-v{font-size:26px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
-.card{padding:15px;background:var(--bg-1);border:1px solid var(--bd);
-  border-radius:var(--r)}
-.card h3{font-size:12px;text-transform:uppercase;letter-spacing:.05em;
-  color:var(--tx-2);margin-bottom:12px;font-weight:700}
-.bar{margin-bottom:9px}
-.bar-h{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
-.bar-h b{font-variant-numeric:tabular-nums;color:var(--tx-2);font-weight:600}
-.bar-t{height:7px;background:var(--bg-3);border-radius:99px;overflow:hidden}
-.bar-f{height:100%;border-radius:99px;transition:width .35s ease}
-.top{display:flex;flex-direction:column;gap:7px}
-.top-i{display:flex;align-items:center;gap:9px;padding:8px;background:var(--bg-2);
-  border-radius:var(--r-s);cursor:pointer;font-size:13px}
-.top-i:hover{background:var(--bg-hover)}
-.top-r{width:20px;font-weight:700;color:var(--tx-3);font-size:12px;flex-shrink:0}
-.top-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-/* ── 10 · FICHE ───────────────────────────────────────────────────────── */
-#ui-sheet{
-  position:fixed;top:0;right:0;bottom:0;width:var(--sheet);z-index:900;
-  background:var(--bg-1);border-left:1px solid var(--bd);box-shadow:var(--sh-l);
-  display:flex;flex-direction:column;
-  transform:translateX(101%);transition:transform .26s cubic-bezier(.4,0,.2,1);
-  visibility:hidden}
-#ui-sheet.on{transform:none;visibility:visible}
-.sh-h{padding:12px 14px;border-bottom:1px solid var(--bd);flex-shrink:0;
-  display:flex;flex-direction:column;gap:9px;background:var(--bg-2)}
-.sh-h-t{display:flex;align-items:flex-start;gap:9px}
-#ui-sheet-title{font-size:16px;font-weight:700;flex:1;min-width:0;line-height:1.3}
-#ui-sheet-sub{font-size:11px;color:var(--tx-2);margin-top:2px}
-#ui-sheet-dirty{font-size:10px}
-.sh-acts{display:flex;gap:5px;flex-wrap:wrap}
-#ui-sheet-sections{flex:1;overflow-y:auto;padding:10px 14px 60px;min-height:0}
-.sec{border:1px solid var(--bd);border-radius:var(--r-s);margin-bottom:8px;
-  background:var(--bg-2);overflow:hidden}
-.sec-h{display:flex;align-items:center;gap:8px;padding:10px 12px;
-  cursor:pointer;user-select:none;font-weight:600;font-size:13px;
-  background:none;border:none;width:100%;text-align:left}
-.sec-h:hover{background:var(--bg-3)}
-.sec-h .ch{font-size:9px;color:var(--tx-3);transition:transform .18s;flex-shrink:0}
-.sec.open .sec-h .ch{transform:rotate(90deg)}
-.sec-b{display:none;padding:0 12px 14px;flex-direction:column;gap:11px}
-.sec.open .sec-b{display:flex}
-.fld{display:flex;flex-direction:column}
-.fld.g2{grid-column:span 2}
-#ui-ratings{display:flex;flex-direction:column;gap:12px}
-.rate{display:flex;flex-direction:column;gap:5px}
-.rate-h{display:flex;justify-content:space-between;align-items:center;font-size:12.5px}
-.rate-v{font-family:var(--fm);font-size:12px;color:var(--ac-2);font-weight:600}
-.score-live{display:flex;align-items:center;justify-content:space-between;
-  padding:11px 13px;background:var(--ac-dim);border:1px solid var(--ac);
-  border-radius:var(--r-s);margin-bottom:6px}
-.score-live b{font-size:21px;font-variant-numeric:tabular-nums}
-#ui-logs{display:flex;flex-direction:column;gap:7px;margin-top:11px}
-.log{padding:9px 11px;background:var(--bg-3);border-radius:var(--r-s);
-  border-left:2px solid var(--ac)}
-.log-d{font-size:10px;color:var(--tx-3);margin-bottom:4px;font-family:var(--fm)}
-.log-b{font-size:13px;white-space:pre-wrap;word-break:break-word}
-.log-x{float:right;background:none;border:none;color:var(--tx-3);
-  padding:0 3px;font-size:14px;line-height:1}
-.log-x:hover{color:var(--err)}
-
-/* ── 11 · MODALES ─────────────────────────────────────────────────────── */
-.modal{position:fixed;inset:0;z-index:950;display:none;
-  align-items:center;justify-content:center;padding:16px}
-.modal.on{display:flex}
-.modal::before{content:"";position:absolute;inset:0;background:#000c;
-  backdrop-filter:blur(3px)}
-.mbox{position:relative;background:var(--bg-1);border:1px solid var(--bd);
-  border-radius:var(--r-l);box-shadow:var(--sh-l);width:100%;max-width:560px;
-  max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
-.mbox.sm{max-width:400px}
-.mbox.lg{max-width:700px}
-.m-h{padding:15px 18px;border-bottom:1px solid var(--bd);display:flex;
-  align-items:center;justify-content:space-between;gap:10px;flex-shrink:0}
-.m-h h2{font-size:15px;font-weight:700}
-.m-b{padding:18px;overflow-y:auto;flex:1;display:flex;
-  flex-direction:column;gap:14px;min-height:0}
-.m-f{padding:13px 18px;border-top:1px solid var(--bd);display:flex;
-  gap:8px;justify-content:flex-end;flex-shrink:0;flex-wrap:wrap}
-.mx{background:none;border:none;color:var(--tx-2);font-size:22px;
-  line-height:1;padding:0 4px;cursor:pointer}
-.mx:hover{color:var(--tx)}
-
-/* lignes de settings */
-.srow{display:flex;align-items:center;gap:7px;padding:8px;background:var(--bg-2);
-  border:1px solid var(--bd);border-radius:var(--r-s)}
-.srow .inp{padding:5px 8px;font-size:12.5px}
-.srow-h{display:flex;flex-direction:column;gap:1px;flex-shrink:0}
-.srow-h button{background:none;border:none;color:var(--tx-3);font-size:8px;
-  line-height:1;padding:2px 3px;cursor:pointer}
-.srow-h button:hover{color:var(--ac-2)}
-.slist{display:flex;flex-direction:column;gap:6px}
-#ui-columns-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-  gap:7px}
-.col-i{display:flex;align-items:center;gap:7px;padding:7px 9px;background:var(--bg-2);
-  border:1px solid var(--bd);border-radius:var(--r-s);font-size:12.5px;cursor:pointer}
-.col-i:hover{background:var(--bg-hover)}
-.io-prev{padding:11px 13px;background:var(--bg-2);border:1px solid var(--bd);
-  border-radius:var(--r-s);font-size:12px;color:var(--tx-2);font-family:var(--fm);
-  line-height:1.7;white-space:pre-wrap}
-.io-rep{max-height:170px;overflow-y:auto}
-
-/* ── 12 · TOASTS ──────────────────────────────────────────────────────── */
-#app-toasts{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
-  z-index:1000;display:flex;flex-direction:column;gap:7px;align-items:center;
-  pointer-events:none;width:max-content;max-width:calc(100vw - 32px)}
-.toast{padding:10px 16px;background:var(--bg-3);border:1px solid var(--bd-2);
-  border-radius:99px;box-shadow:var(--sh-l);font-size:13px;font-weight:500;
-  display:flex;align-items:center;gap:8px;
-  animation:tin .22s cubic-bezier(.4,0,.2,1)}
-.toast.ok{border-color:var(--ok);color:var(--ok)}
-.toast.err{border-color:var(--err);color:var(--err)}
-.toast.out{animation:tout .22s forwards}
-@keyframes tin{from{opacity:0;transform:translateY(14px) scale(.94)}}
-@keyframes tout{to{opacity:0;transform:translateY(14px) scale(.94)}}
-
-/* ── 13 · AUTH ────────────────────────────────────────────────────────── */
-#auth-screen{position:fixed;inset:0;z-index:1100;display:flex;
-  align-items:center;justify-content:center;padding:20px;background:var(--bg);
-  background-image:radial-gradient(circle at 22% 18%,#6366f118,transparent 46%),
-                   radial-gradient(circle at 78% 82%,#14b8a614,transparent 46%)}
-#auth-screen.hide{display:none}
-#auth-form{width:100%;max-width:376px;padding:28px;background:var(--bg-1);
-  border:1px solid var(--bd);border-radius:var(--r-l);box-shadow:var(--sh-l);
-  display:flex;flex-direction:column;gap:14px}
-.auth-brand{text-align:center;margin-bottom:6px}
-.auth-brand div{font-size:34px;margin-bottom:7px}
-#auth-title{font-size:19px;font-weight:700}
-.auth-brand p{font-size:12.5px;color:var(--tx-2);margin-top:4px}
-#auth-msg{padding:10px 12px;border-radius:var(--r-s);font-size:12.5px;
-  line-height:1.5;display:none}
-#auth-msg.on{display:block}
-#auth-msg.err{background:#ef444418;border:1px solid #ef444455;color:#fca5a5}
-#auth-msg.ok{background:#10b98118;border:1px solid #10b98155;color:#6ee7b7}
-#auth-msg.info{background:var(--ac-dim);border:1px solid #6366f155;color:var(--ac-2)}
-#auth-toggle{background:none;border:none;color:var(--ac-2);font-size:12.5px;
-  text-decoration:underline;padding:4px}
-#ui-loading{position:fixed;inset:0;z-index:1200;display:flex;
-  align-items:center;justify-content:center;background:var(--bg);
-  color:var(--tx-2);font-size:13px;gap:10px}
-#ui-loading.hide{display:none}
-.spin{width:17px;height:17px;border:2px solid var(--bd);
-  border-top-color:var(--ac);border-radius:50%;animation:sp .7s linear infinite}
-@keyframes sp{to{transform:rotate(360deg)}}
-
-/* ── 14 · RESPONSIVE ──────────────────────────────────────────────────── */
-@media(max-width:900px){
-  :root{--sb:290px;--sheet:100vw}
-  .brand em{display:none}
-}
-@media(max-width:780px){
-  :root{--tb:52px}
-  #app-sidebar{position:absolute;top:0;left:0;bottom:0;width:min(320px,86vw);
-    box-shadow:var(--sh-l);transform:translateX(-101%);
-    transition:transform .24s cubic-bezier(.4,0,.2,1)}
-  #app-sidebar.open{transform:none}
-  #app-sidebar.hide{display:flex;transform:translateX(-101%)}
-  #app-topbar{gap:5px;padding:0 8px;overflow-x:auto;scrollbar-width:none}
-  #app-topbar::-webkit-scrollbar{display:none}
-  #ui-user-email{display:none}
-  #app-tabs .btn span{display:none}
-  .grid2,.grid3{grid-template-columns:1fr}
-  .fld.g2{grid-column:span 1}
-  #v-dash{padding:12px}
-  .m-f{justify-content:stretch}
-  .m-f .btn{flex:1}
-}
-@media(max-width:480px){
-  .sb-presets .btn{min-width:0;flex:1 1 46%}
-}
-@media(prefers-reduced-motion:reduce){
-  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
-}
-</style>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
 </head>
 <body>
 
-<!-- ════════════════════════════════════════════════════════════════════
-     ÉCRAN DE CHARGEMENT
-     ════════════════════════════════════════════════════════════════════ -->
-<div id="ui-loading"><div class="spin"></div><span>Chargement…</span></div>
+<!-- ══════════ TOASTS ══════════ -->
+<div id="ui-toasts" class="toasts" aria-live="polite"></div>
 
-<!-- ════════════════════════════════════════════════════════════════════
-     AUTH · plein écran
-     ════════════════════════════════════════════════════════════════════ -->
-<div id="auth-screen" class="hide">
-  <form id="auth-form" autocomplete="on" novalidate>
-    <div class="auth-brand">
-      <div>🎨</div>
-      <h1 id="auth-title">Connexion</h1>
-      <p>Prospection de lieux culturels</p>
-    </div>
+<!-- ══════════ AUTH ══════════ -->
+<section id="v-auth" class="auth">
+  <form class="auth-card" autocomplete="on">
+    <h1 class="auth-title">Prospection<span class="dot">.</span></h1>
+    <p class="auth-lead">Lieux culturels — accès réservé</p>
 
-    <div id="auth-msg"></div>
+    <label class="field">
+      <span>Email</span>
+      <input id="f-auth-email" type="email" autocomplete="username" required>
+    </label>
 
-    <div class="fld">
-      <label class="lbl" for="auth-email">Email</label>
-      <input id="auth-email" class="inp" type="email" autocomplete="email"
-             placeholder="vous@exemple.fr" required>
-    </div>
+    <label class="field">
+      <span>Mot de passe</span>
+      <input id="f-auth-password" type="password" autocomplete="current-password" required minlength="6">
+    </label>
 
-    <div class="fld">
-      <label class="lbl" for="auth-pass">Mot de passe</label>
-      <input id="auth-pass" class="inp" type="password"
-             autocomplete="current-password" placeholder="6 caractères minimum"
-             minlength="6" required>
-    </div>
-
-    <button id="auth-submit" class="btn pri" type="submit">Se connecter</button>
-
-    <div style="text-align:center">
-      <span id="auth-mode-label" class="dim" style="font-size:12.5px">
-        Pas encore de compte&nbsp;?</span>
-      <button id="auth-toggle" type="button">Créer un compte</button>
-    </div>
+    <button id="btn-login" type="submit" class="btn btn-primary btn-block">Se connecter</button>
+    <p id="ui-auth-msg" class="auth-msg" role="status"></p>
+    <p class="auth-note">Les inscriptions sont fermées.</p>
   </form>
-</div>
+</section>
 
-<!-- ════════════════════════════════════════════════════════════════════
-     APPLICATION
-     ════════════════════════════════════════════════════════════════════ -->
-<div id="app-root" hidden>
-<div id="app-shell">
+<!-- ══════════ APP ══════════ -->
+<div id="v-app" class="app" hidden>
 
-  <!-- ── TOPBAR ────────────────────────────────────────────────────── -->
-  <header id="app-topbar">
-    <button id="btn-sidebar-toggle" class="btn ico" type="button"
-            title="Panneau latéral" aria-label="Panneau latéral">☰</button>
+  <!-- ─── TOPBAR ─── -->
+  <header class="topbar">
+    <div class="brand">Prospection<span class="dot">.</span></div>
 
-    <div class="brand"><span>🎨</span><em>Prospection</em></div>
-
-    <nav id="app-tabs" role="tablist">
-      <button id="btn-tab-map"   class="btn on" type="button" role="tab"
-              title="Carte">🗺 <span>Carte</span></button>
-      <button id="btn-tab-table" class="btn"    type="button" role="tab"
-              title="Tableau">▦ <span>Tableau</span></button>
-      <button id="btn-tab-dash"  class="btn"    type="button" role="tab"
-              title="Tableau de bord">📊 <span>Bord</span></button>
+    <nav class="tabs" role="tablist">
+      <button id="btn-view-map"   class="tab is-active" role="tab">🗺️ Carte</button>
+      <button id="btn-view-table" class="tab" role="tab">📋 Tableau</button>
+      <button id="btn-view-dash"  class="tab" role="tab">📊 Dashboard</button>
     </nav>
 
-    <div class="grow"></div>
-
-    <button id="btn-new" class="btn pri" type="button"
-            title="Nouveau lieu (N)">+ Lieu</button>
-    <button id="btn-types"    class="btn ico" type="button" title="Types">🏷</button>
-    <button id="btn-criteria" class="btn ico" type="button" title="Critères">⭐</button>
-    <button id="btn-columns"  class="btn ico" type="button" title="Colonnes">▤</button>
-    <button id="btn-io"       class="btn ico" type="button" title="Import / Export">⇅</button>
-
-    <span id="ui-user-email" class="mono"></span>
-    <button id="btn-logout" class="btn ico" type="button"
-            title="Déconnexion">⏏</button>
+    <div class="topbar-right">
+      <button id="btn-new" class="btn btn-primary btn-sm">＋ Lieu</button>
+      <button id="btn-settings" class="btn btn-icon" title="Paramètres">⚙️</button>
+      <span id="ui-user-email" class="user-email"></span>
+      <button id="btn-logout" class="btn btn-ghost btn-sm">Quitter</button>
+    </div>
   </header>
 
-  <!-- ── CORPS ─────────────────────────────────────────────────────── -->
-  <div id="app-body">
+  <!-- ─── CORPS ─── -->
+  <div class="body">
 
-    <!-- ▸ SIDEBAR -->
-    <aside id="app-sidebar">
+    <!-- ═══ PANNEAU LATÉRAL ═══ -->
+    <aside class="side">
 
-      <div class="sb-top">
-        <div class="row">
-          <input id="flt-search" class="inp grow" type="search"
-                 placeholder="Rechercher…  ( / )" autocomplete="off">
-          <button id="btn-filters-toggle" class="btn ico rel" type="button"
-                  title="Filtres">⚙<span id="ui-filters-badge" hidden>0</span></button>
-        </div>
-        <div class="sb-presets">
-          <button id="btn-preset-recent" class="btn" type="button">Récents</button>
-          <button id="btn-preset-top"    class="btn" type="button">Top score</button>
-          <button id="btn-preset-todo"   class="btn" type="button">À faire</button>
-          <button id="btn-preset-fav"    class="btn" type="button">★ Favoris</button>
-        </div>
+      <div class="side-search">
+        <input id="flt-search" type="search" placeholder="Rechercher…" autocomplete="off">
+        <button id="btn-search-clear" class="btn btn-icon btn-xs" title="Effacer">✕</button>
       </div>
 
-      <div id="app-filters" class="sb-filters hide">
-        <div class="sb-filters-in">
-
-          <div class="grid2">
-            <div class="fld">
-              <label class="lbl" for="flt-type">Type</label>
-              <select id="flt-type" class="msel" multiple size="4"></select>
-            </div>
-            <div class="fld">
-              <label class="lbl" for="flt-status">Statut</label>
-              <select id="flt-status" class="msel" multiple size="4"></select>
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div class="fld">
-              <label class="lbl" for="flt-relation">Relation</label>
-              <select id="flt-relation" class="msel" multiple size="3"></select>
-            </div>
-            <div class="fld">
-              <label class="lbl" for="flt-priority">Priorité</label>
-              <select id="flt-priority" class="msel" multiple size="3"></select>
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div class="fld">
-              <label class="lbl" for="flt-legal">Forme juridique</label>
-              <select id="flt-legal" class="msel" multiple size="3"></select>
-            </div>
-            <div class="fld">
-              <label class="lbl" for="flt-gov">Gouvernance</label>
-              <select id="flt-gov" class="msel" multiple size="3"></select>
-            </div>
-          </div>
-
-          <div class="fld">
-            <label class="lbl" for="flt-model">Modèle économique</label>
-            <select id="flt-model" class="msel" multiple size="3"></select>
-          </div>
-
-          <div class="fld">
-            <label class="lbl" for="flt-score">
-              Score minimum · <span id="flt-score-val" class="mono">0</span>
-            </label>
-            <input id="flt-score" type="range" min="0" max="5" step="0.5" value="0">
-          </div>
-
-          <div class="grid2">
-            <div class="fld">
-                            <label class="lbl" for="flt-surface-min">Surface min (m²)</label>
-              <input id="flt-surface-min" class="inp" type="number" min="0"
-                     step="10" placeholder="—" autocomplete="off">
-            </div>
-            <div class="fld">
-              <label class="lbl" for="flt-surface-max">Surface max (m²)</label>
-              <input id="flt-surface-max" class="inp" type="number" min="0"
-                     step="10" placeholder="—" autocomplete="off">
-            </div>
-          </div>
-
-          <div class="fld">
-            <label class="lbl" for="flt-sort">Tri</label>
-            <select id="flt-sort" class="sel">
-              <option value="recent">Plus récents</option>
-              <option value="score">Meilleur score</option>
-              <option value="name">Nom (A→Z)</option>
-              <option value="surface">Surface (décroiss.)</option>
-              <option value="rent">Loyer (croiss.)</option>
-              <option value="year">Année d'ouverture</option>
-            </select>
-          </div>
-
-          <label class="chk">
-            <input id="flt-fav" type="checkbox">
-            <span>★ Favoris uniquement</span>
-          </label>
-
-          <label class="chk">
-            <input id="flt-viewport" type="checkbox">
-            <span>Seulement dans la vue de la carte</span>
-          </label>
-
-          <button id="btn-filters-reset" class="btn sm" type="button">
-            ↺ Réinitialiser les filtres
-          </button>
-
-        </div>
+      <div class="presets">
+        <button id="btn-preset-recent" class="chip">Récents</button>
+        <button id="btn-preset-top"    class="chip">Top score</button>
+        <button id="btn-preset-todo"   class="chip">À faire</button>
+        <button id="btn-preset-fav"    class="chip">★ Favoris</button>
       </div>
 
-      <div class="sb-count">
-        <span id="ui-count">0 / 0</span>
-        <span class="dim">lieux</span>
+      <div class="side-bar">
+        <button id="btn-filters-toggle" class="btn btn-ghost btn-xs">
+          Filtres <span id="ui-filter-count" class="badge badge-dim">0</span>
+        </button>
+        <select id="flt-sort" class="input input-xs" aria-label="Tri">
+          <option value="recent">Récents</option>
+          <option value="score">Score ↓</option>
+          <option value="name">Nom A→Z</option>
+          <option value="surface">Surface ↓</option>
+          <option value="rent">Loyer ↑</option>
+          <option value="year">Année ↓</option>
+        </select>
       </div>
 
-      <div id="ui-list"></div>
-      <template id="ui-list-empty">
-        <div class="empty">
-          <b>Aucun lieu</b>
-          Ajuste tes filtres ou crée un lieu avec « + Lieu ».
+      <!-- FILTRES -->
+      <div id="ui-active-filters" class="filters" hidden>
+        <div class="filters-grid">
+          <label class="field-xs"><span>Type</span>
+            <select id="flt-type" multiple size="4"></select></label>
+          <label class="field-xs"><span>Statut</span>
+            <select id="flt-status" multiple size="4"></select></label>
+          <label class="field-xs"><span>Relation</span>
+            <select id="flt-relation" multiple size="4"></select></label>
+          <label class="field-xs"><span>Priorité</span>
+            <select id="flt-priority" multiple size="3"></select></label>
+          <label class="field-xs"><span>Forme jur.</span>
+            <select id="flt-legal-form" multiple size="4"></select></label>
+          <label class="field-xs"><span>Gouvernance</span>
+            <select id="flt-governance" multiple size="3"></select></label>
+          <label class="field-xs"><span>Modèle éco.</span>
+            <select id="flt-business-model" multiple size="4"></select></label>
         </div>
-      </template>
 
+        <label class="field-xs">
+          <span>Score min. <b id="flt-score-val">0</b></span>
+          <input id="flt-score" type="range" min="0" max="5" step="0.5" value="0">
+        </label>
+
+        <div class="row-2">
+          <label class="field-xs"><span>Surface min</span>
+            <input id="flt-surface-min" type="number" min="0" placeholder="m²"></label>
+          <label class="field-xs"><span>Surface max</span>
+            <input id="flt-surface-max" type="number" min="0" placeholder="m²"></label>
+        </div>
+
+        <div class="row-2">
+          <label class="check"><input id="flt-fav" type="checkbox"><span>Favoris seulement</span></label>
+          <label class="check"><input id="flt-in-view" type="checkbox"><span>Dans la vue</span></label>
+        </div>
+
+        <button id="btn-filters-reset" class="btn btn-ghost btn-block btn-xs">Réinitialiser</button>
+      </div>
+
+      <div class="side-count"><span id="ui-count">0 / 0</span></div>
+      <div id="ui-list" class="list"></div>
+      <div id="ui-empty" class="empty" hidden>
+        <p>Aucun lieu ne correspond.</p>
+        <p class="muted">Modifie les filtres, ou crée un lieu avec <b>＋</b>.</p>
+      </div>
     </aside>
 
-    <!-- ▸ ZONE PRINCIPALE -->
-    <main id="app-main">
+    <!-- ═══ ZONE PRINCIPALE ═══ -->
+    <main class="main">
 
-      <!-- A · CARTE -->
-      <section id="v-map" class="on" role="tabpanel">
-        <div id="v-map-canvas"></div>
-        <div class="map-ctrl">
-          <button id="btn-map-fit"      class="btn ico" type="button"
-                  title="Tout cadrer">⛶</button>
-          <button id="btn-map-locate"   class="btn ico" type="button"
-                  title="Où suis-je ?">◎</button>
-          <button id="btn-map-pin"      class="btn ico" type="button"
-                  title="Mode pointage">📍</button>
-          <button id="btn-map-viewport" class="btn ico" type="button"
-                  title="Filtrer sur la vue">🔲</button>
-        </div>
-        <div id="ui-map-hint" class="map-hint" hidden>
-          Clique sur la carte pour placer le lieu · Échap pour annuler
+      <!-- CARTE -->
+      <section id="v-map" class="view">
+        <div id="ui-map" class="map"></div>
+        <div class="map-tools">
+          <button id="btn-fit"    class="btn btn-icon" title="Tout cadrer">⤢</button>
+          <button id="btn-locate" class="btn btn-icon" title="Où suis-je">◎</button>
+          <button id="btn-pick"   class="btn btn-icon" title="Mode pointage">📌</button>
         </div>
       </section>
 
-      <!-- B · TABLEAU -->
-      <section id="v-table" role="tabpanel">
-        <div class="tw">
-          <table id="ui-table">
-            <thead id="ui-thead"></thead>
-            <tbody id="ui-tbody"></tbody>
+      <!-- TABLEAU -->
+      <section id="v-table" class="view" hidden>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr id="ui-table-head"></tr></thead>
+            <tbody id="ui-table-body"></tbody>
           </table>
-          <div id="ui-table-empty" class="empty" hidden>
-            <b>Aucun lieu</b>
-            Ajuste tes filtres ou crée un lieu.
-          </div>
+          <div id="ui-table-empty" class="empty" hidden><p>Aucun lieu.</p></div>
         </div>
       </section>
 
-      <!-- C · DASHBOARD -->
-      <section id="v-dash" role="tabpanel">
+      <!-- DASHBOARD -->
+      <section id="v-dash" class="view" hidden>
         <div class="dash">
-
           <div class="kpis">
-            <div class="kpi">
-              <div class="kpi-l">Lieux</div>
-              <div class="kpi-v" id="ui-kpi-count">0</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-l">Score moyen</div>
-              <div class="kpi-v" id="ui-kpi-score">—</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-l">Surface totale</div>
-              <div class="kpi-v" id="ui-kpi-surface">—</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-l">Loyer médian</div>
-              <div class="kpi-v" id="ui-kpi-rent">—</div>
-            </div>
+            <div class="kpi"><span class="kpi-lab">Lieux</span><b id="ui-kpi-count">0</b></div>
+            <div class="kpi"><span class="kpi-lab">Score moyen</span><b id="ui-kpi-score">—</b></div>
+            <div class="kpi"><span class="kpi-lab">Surface totale</span><b id="ui-kpi-surface">—</b></div>
+            <div class="kpi"><span class="kpi-lab">Loyer médian</span><b id="ui-kpi-rent">—</b></div>
+            <div class="kpi"><span class="kpi-lab">Favoris</span><b id="ui-kpi-fav">0</b></div>
           </div>
 
-          <div class="cards">
-            <div class="card">
-              <h3>Répartition par statut</h3>
-              <div id="ui-dist-status"></div>
-            </div>
-            <div class="card">
-              <h3>Répartition par type</h3>
-              <div id="ui-dist-type"></div>
-            </div>
-            <div class="card">
-              <h3>Répartition par priorité</h3>
-              <div id="ui-dist-priority"></div>
-            </div>
-            <div class="card">
-              <h3>Top 5 · meilleurs scores</h3>
-              <div id="ui-top5" class="top"></div>
-            </div>
+          <div class="dash-grid">
+            <div class="card"><h3>Par type</h3><div id="ui-dist-type" class="bars"></div></div>
+            <div class="card"><h3>Par statut</h3><div id="ui-dist-status" class="bars"></div></div>
+            <div class="card"><h3>Par priorité</h3><div id="ui-dist-priority" class="bars"></div></div>
+            <div class="card"><h3>Top 5 scores</h3><div id="ui-top5" class="top5"></div></div>
           </div>
-
         </div>
       </section>
 
     </main>
-  </div><!-- /app-body -->
-</div><!-- /app-shell -->
-</div><!-- /app-root -->
+  </div>
+</div>
 
-<!-- Voile commun aux panneaux glissants (mobile) -->
-<div id="app-overlay"></div>
+<!-- ══════════ FICHE LIEU ══════════ -->
+<aside id="ui-sheet" class="sheet" hidden>
+  <header class="sheet-head">
+    <div class="sheet-titles">
+      <h2 id="ui-sheet-title">Nouveau lieu</h2>
+      <p id="ui-sheet-sub" class="muted"></p>
+    </div>
+    <div class="sheet-acts">
+      <button id="btn-fav" class="btn btn-icon" title="Favori">☆</button>
+      <button id="btn-dup" class="btn btn-icon" title="Dupliquer">⧉</button>
+      <button id="btn-del" class="btn btn-icon btn-danger" title="Supprimer">🗑</button>
+      <button id="btn-sheet-close" class="btn btn-icon" title="Fermer (Échap)">✕</button>
+    </div>
+  </header>
 
-<!-- ════════════════════════════════════════════════════════════════════
-     FICHE LIEU · panneau glissant
-     Le contenu des sections est GÉNÉRÉ par buildSheet() (§14 du JS).
-     ════════════════════════════════════════════════════════════════════ -->
-<aside id="ui-sheet" aria-label="Fiche du lieu">
+  <div class="sheet-body">
 
-  <div class="sh-h">
-    <div class="sh-h-t">
-      <div class="grow">
-        <h2 id="ui-sheet-title">Nouveau lieu</h2>
-        <div id="ui-sheet-sub"></div>
+    <!-- IDENTITÉ -->
+    <details class="sec" open>
+      <summary>Identité</summary>
+      <div class="sec-in">
+        <label class="field"><span>Nom *</span><input id="f-name" type="text" required></label>
+        <div class="row-2">
+          <label class="field"><span>Type</span><select id="f-type"></select></label>
+          <label class="field"><span>Relation</span><select id="f-relation"></select></label>
+        </div>
+        <label class="field"><span>Description</span><textarea id="f-description" rows="3"></textarea></label>
+        <label class="field"><span>Année d'ouverture</span><input id="f-opened-year" type="number" min="1000" max="2100"></label>
       </div>
-      <span id="ui-sheet-dirty" class="badge warn" hidden>● non enregistré</span>
-      <button id="btn-sheet-close" class="mx" type="button"
-              title="Fermer (Échap)">×</button>
-    </div>
+    </details>
 
-    <div class="sh-acts">
-      <button id="btn-sheet-save" class="btn pri grow" type="button">
-        ⌘ Enregistrer</button>
-      <button id="btn-sheet-fav"  class="btn ico" type="button"
-              title="Favori">☆</button>
-      <button id="btn-sheet-dup"  class="btn ico" type="button"
-              title="Dupliquer">⧉</button>
-      <button id="btn-sheet-del"  class="btn ico dang" type="button"
-              title="Supprimer">🗑</button>
-    </div>
+    <!-- LOCALISATION -->
+    <details class="sec">
+      <summary>Localisation</summary>
+      <div class="sec-in">
+        <label class="field"><span>Adresse</span><input id="f-address" type="text"></label>
+        <div class="row-3">
+          <label class="field"><span>Ville</span><input id="f-city" type="text"></label>
+          <label class="field"><span>CP</span><input id="f-zip" type="text"></label>
+          <label class="field"><span>Pays</span><input id="f-country" type="text"></label>
+        </div>
+        <div class="row-2">
+          <label class="field"><span>Latitude</span><input id="f-lat" type="number" step="any"></label>
+          <label class="field"><span>Longitude</span><input id="f-lng" type="number" step="any"></label>
+        </div>
+        <div class="row-2">
+          <button id="btn-geocode"  class="btn btn-ghost btn-xs" type="button">🔍 Géocoder l'adresse</button>
+          <button id="btn-pick-map" class="btn btn-ghost btn-xs" type="button">📌 Pointer sur la carte</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- CONTACT -->
+    <details class="sec">
+      <summary>Contact</summary>
+      <div class="sec-in">
+        <label class="field"><span>Interlocuteur</span><input id="f-contact-name" type="text"></label>
+        <div class="row-2">
+          <label class="field"><span>Email</span><input id="f-email" type="email"></label>
+          <label class="field"><span>Téléphone</span><input id="f-phone" type="tel"></label>
+        </div>
+        <div class="row-2">
+          <label class="field"><span>Site web</span><input id="f-website" type="url"></label>
+          <label class="field"><span>Réseaux</span><input id="f-social" type="text"></label>
+        </div>
+        <div class="field">
+          <span>Tags</span>
+          <div id="f-tags" class="tags"></div>
+          <input id="f-tags-input" type="text" placeholder="Ajouter un tag puis Entrée">
+        </div>
+      </div>
+    </details>
+
+    <!-- STRUCTURE -->
+    <details class="sec">
+      <summary>Structure juridique</summary>
+      <div class="sec-in">
+        <div class="row-2">
+          <label class="field"><span>Forme juridique</span><select id="f-legal-form"></select></label>
+          <label class="field"><span>Gouvernance</span><select id="f-governance"></select></label>
+        </div>
+        <label class="field"><span>Propriétaire / porteur</span><input id="f-owner" type="text"></label>
+        <div class="row-2">
+          <label class="field"><span>Équipe (ETP)</span><input id="f-team-fte" type="number" step="0.1" min="0"></label>
+          <label class="field"><span>Bénévoles</span><input id="f-volunteers" type="number" min="0"></label>
+        </div>
+      </div>
+    </details>
+
+    <!-- ÉCONOMIE -->
+    <details class="sec">
+      <summary>Économie</summary>
+      <div class="sec-in">
+        <label class="field"><span>Modèle économique</span><select id="f-business-model"></select></label>
+        <div class="field">
+          <span>Sources de revenus</span>
+          <div id="f-revenue-sources" class="tags"></div>
+          <input id="f-revenue-input" type="text" placeholder="Ajouter puis Entrée">
+        </div>
+        <div class="row-2">
+          <label class="field"><span>Budget annuel (€)</span><input id="f-budget-annual" type="number" min="0"></label>
+          <label class="field"><span>Subventions (%)</span><input id="f-subsidy-pct" type="number" min="0" max="100"></label>
+        </div>
+        <label class="field"><span>Financeurs</span><input id="f-funders" type="text"></label>
+        <label class="field"><span>Notes économiques</span><textarea id="f-business-notes" rows="2"></textarea></label>
+      </div>
+    </details>
+
+    <!-- ACTIVITÉ -->
+    <details class="sec">
+      <summary>Activité</summary>
+      <div class="sec-in">
+        <div class="field">
+          <span>Activités</span>
+          <div id="f-activities" class="tags"></div>
+          <input id="f-activities-input" type="text" placeholder="Ajouter puis Entrée">
+        </div>
+        <div class="row-3">
+          <label class="field"><span>Ateliers</span><input id="f-studios-count" type="number" min="0"></label>
+          <label class="field"><span>Résidents / an</span><input id="f-residents-year" type="number" min="0"></label>
+          <label class="field"><span>Public / an</span><input id="f-audience-year" type="number" min="0"></label>
+        </div>
+      </div>
+    </details>
+
+    <!-- BÂTI -->
+    <details class="sec">
+      <summary>Bâti</summary>
+      <div class="sec-in">
+        <div class="row-3">
+          <label class="field"><span>Surface tot. (m²)</span><input id="f-surface-total" type="number" min="0" step="0.1"></label>
+          <label class="field"><span>Surface expo (m²)</span><input id="f-surface-expo" type="number" min="0" step="0.1"></label>
+          <label class="field"><span>Hauteur (m)</span><input id="f-ceiling-h" type="number" min="0" step="0.1"></label>
+        </div>
+        <div class="row-2">
+          <label class="field"><span>Niveaux</span><input id="f-floors" type="number" min="0"></label>
+          <label class="field"><span>Occupation</span><select id="f-tenure"></select></label>
+        </div>
+        <div class="row-3">
+          <label class="field"><span>Loyer / mois (€)</span><input id="f-rent-month" type="number" min="0"></label>
+          <label class="field"><span>Charges / mois (€)</span><input id="f-charges-month" type="number" min="0"></label>
+          <label class="field"><span>Fin de bail</span><input id="f-lease-end" type="date"></label>
+        </div>
+        <div class="field">
+          <span>Équipements</span>
+          <div id="f-features" class="tags"></div>
+          <input id="f-features-input" type="text" placeholder="Ajouter puis Entrée">
+        </div>
+        <label class="field"><span>Transports</span><input id="f-transport" type="text"></label>
+        <label class="field"><span>Contraintes</span><textarea id="f-constraints" rows="2"></textarea></label>
+      </div>
+    </details>
+
+    <!-- ÉVALUATION -->
+    <details class="sec">
+      <summary>Évaluation</summary>
+      <div class="sec-in">
+        <div class="score-live">Score pondéré : <b id="ui-score-live">—</b></div>
+        <div id="ui-ratings" class="ratings"></div>
+        <label class="field"><span>Points forts</span><textarea id="f-strengths" rows="2"></textarea></label>
+        <label class="field"><span>Points faibles</span><textarea id="f-weaknesses" rows="2"></textarea></label>
+        <label class="field"><span>À retenir</span><textarea id="f-takeaway" rows="2"></textarea></label>
+      </div>
+    </details>
+
+    <!-- SUIVI -->
+    <details class="sec">
+      <summary>Suivi</summary>
+      <div class="sec-in">
+        <div class="row-2">
+          <label class="field"><span>Statut</span><select id="f-status"></select></label>
+          <label class="field"><span>Priorité</span><select id="f-priority"></select></label>
+        </div>
+        <div class="row-2">
+          <label class="field"><span>Date de visite</span><input id="f-visit-date" type="date"></label>
+          <label class="field"><span>Prochaine date</span><input id="f-next-date" type="date"></label>
+        </div>
+        <label class="field"><span>Prochaine action</span><input id="f-next-action" type="text"></label>
+        <label class="field"><span>Liens</span><textarea id="f-links" rows="2"></textarea></label>
+      </div>
+    </details>
+
+    <!-- JOURNAL -->
+    <details class="sec">
+      <summary>Journal</summary>
+      <div class="sec-in">
+        <label class="field"><span>Nouvelle entrée</span><textarea id="f-log-body" rows="2"></textarea></label>
+        <button id="btn-log-add" class="btn btn-ghost btn-xs" type="button">＋ Ajouter au journal</button>
+        <div id="ui-logs" class="logs"></div>
+      </div>
+    </details>
+
   </div>
 
-  <div id="ui-sheet-sections"></div>
-
+  <footer class="sheet-foot">
+    <button id="btn-save" class="btn btn-primary btn-block">Enregistrer</button>
+  </footer>
 </aside>
 
-<!-- ════════════════════════════════════════════════════════════════════
-     MODALE · TYPES
-     ════════════════════════════════════════════════════════════════════ -->
-<div id="m-types" class="modal">
-  <div class="mbox">
-    <div class="m-h">
-      <h2>🏷 Types de lieux</h2>
-      <button class="mx" type="button" data-close="m-types">×</button>
-    </div>
-    <div class="m-b">
-      <p class="muted" style="font-size:12.5px">
-        Emoji, couleur et ordre d'affichage. Les modifications sont
-        enregistrées immédiatement.
-      </p>
-      <div id="ui-types-list" class="slist"></div>
-    </div>
-    <div class="m-f">
-      <button id="btn-type-add" class="btn" type="button">+ Ajouter un type</button>
-      <button class="btn pri" type="button" data-close="m-types">Fermer</button>
-    </div>
-  </div>
-</div>
+<!-- ══════════ MODALES ══════════ -->
 
-<!-- ════════════════════════════════════════════════════════════════════
-     MODALE · CRITÈRES
-     ════════════════════════════════════════════════════════════════════ -->
-<div id="m-criteria" class="modal">
-  <div class="mbox">
-    <div class="m-h">
-      <h2>⭐ Grille de notation</h2>
-      <button class="mx" type="button" data-close="m-criteria">×</button>
-    </div>
-    <div class="m-b">
-      <p class="muted" style="font-size:12.5px">
-        Le poids pondère la moyenne. Modifier la grille recalcule
-        automatiquement tous les scores.
-      </p>
-      <div class="row">
-        <select id="m-criteria-preset-select" class="sel grow"></select>
-        <button id="btn-criteria-preset" class="btn" type="button">Charger</button>
+<div id="m-types" class="modal" hidden>
+  <div class="modal-card">
+    <header class="modal-head"><h2>Types de lieux</h2><button class="btn btn-icon" data-close>✕</button></header>
+    <div class="modal-body">
+      <div class="row-3">
+        <input id="set-type-label" type="text" placeholder="Libellé">
+        <input id="set-type-emoji" type="text" placeholder="📍" maxlength="4">
+        <input id="set-type-color" type="color" value="#6366f1">
       </div>
-      <div id="ui-criteria-list" class="slist"></div>
-    </div>
-    <div class="m-f">
-      <button id="btn-criteria-add" class="btn" type="button">+ Ajouter un critère</button>
-      <button class="btn pri" type="button" data-close="m-criteria">Fermer</button>
+      <button id="btn-type-add" class="btn btn-primary btn-block btn-xs">＋ Ajouter</button>
+      <div id="ui-types-list" class="set-list"></div>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════
-     MODALE · COLONNES
-     ════════════════════════════════════════════════════════════════════ -->
-<div id="m-columns" class="modal">
-  <div class="mbox lg">
-    <div class="m-h">
-      <h2>▤ Colonnes du tableau</h2>
-      <button class="mx" type="button" data-close="m-columns">×</button>
-    </div>
-    <div class="m-b">
-      <div id="ui-columns-list"></div>
-    </div>
-    <div class="m-f">
-      <button class="btn pri" type="button" data-close="m-columns">Fermer</button>
+<div id="m-criteria" class="modal" hidden>
+  <div class="modal-card">
+    <header class="modal-head"><h2>Critères de notation</h2><button class="btn btn-icon" data-close>✕</button></header>
+    <div class="modal-body">
+      <div class="row-2">
+        <input id="set-criteria-label"  type="text"   placeholder="Libellé">
+        <input id="set-criteria-weight" type="number" placeholder="Poids" step="0.1" min="0" value="1">
+      </div>
+      <div class="row-2">
+        <button id="btn-criteria-add"    class="btn btn-primary btn-xs">＋ Ajouter</button>
+        <button id="btn-criteria-preset" class="btn btn-ghost btn-xs">Charger un preset</button>
+      </div>
+      <div id="ui-criteria-list" class="set-list"></div>
+      <hr class="sep">
+      <button id="btn-recalc" class="btn btn-ghost btn-block btn-xs">↻ Recalculer tous les scores</button>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════
-     MODALE · IMPORT / EXPORT
-     ════════════════════════════════════════════════════════════════════ -->
-<div id="m-io" class="modal">
-  <div class="mbox">
-    <div class="m-h">
-      <h2>⇅ Import / Export</h2>
-      <button class="mx" type="button" data-close="m-io">×</button>
-    </div>
-    <div class="m-b">
+<div id="m-cols" class="modal" hidden>
+  <div class="modal-card">
+    <header class="modal-head"><h2>Colonnes du tableau</h2><button class="btn btn-icon" data-close>✕</button></header>
+    <div class="modal-body"><div id="ui-cols-list" class="set-list"></div></div>
+  </div>
+</div>
 
-      <div class="grid2">
-        <div class="fld">
-          <label class="lbl" for="m-io-scope">Périmètre</label>
-          <select id="m-io-scope" class="sel">
+<div id="m-io" class="modal" hidden>
+  <div class="modal-card">
+    <header class="modal-head"><h2>Import / Export</h2><button class="btn btn-icon" data-close>✕</button></header>
+    <div class="modal-body">
+      <div class="row-2">
+        <label class="field-xs"><span>Périmètre</span>
+          <select id="m-io-scope">
             <option value="filtered">Lieux filtrés</option>
             <option value="all">Tous les lieux</option>
-          </select>
-        </div>
-        <div class="fld">
-          <label class="lbl" for="m-io-format">Format</label>
-          <select id="m-io-format" class="sel">
+          </select></label>
+        <label class="field-xs"><span>Format</span>
+          <select id="m-io-format">
             <option value="csv">CSV</option>
             <option value="json">JSON</option>
             <option value="geojson">GeoJSON</option>
             <option value="md">Markdown</option>
-          </select>
-        </div>
+          </select></label>
       </div>
-
-      <label class="chk">
-        <input id="m-io-logs" type="checkbox">
-        <span>Inclure le journal</span>
-      </label>
-      <label class="chk">
-        <input id="m-io-ratings" type="checkbox" checked>
-        <span>Inclure les notations détaillées</span>
-      </label>
-
-      <div id="ui-io-preview" class="io-prev">—</div>
-
-      <hr style="border:none;border-top:1px solid var(--bd);margin:2px 0">
-
-      <div>
-        <label class="lbl">Importer un JSON</label>
-        <p class="muted" style="font-size:12px;margin-bottom:8px">
-          Fichier exporté par cette application. Chaque entrée est validée ;
-          un rapport détaille les créations, ignorés et erreurs.
-        </p>
-        <div class="row">
-          <button id="btn-io-file" class="btn grow" type="button">
-            📂 Choisir un fichier…</button>
-          <button id="btn-io-import" class="btn pri" type="button" disabled>
-            Importer</button>
-        </div>
-        <input id="m-io-input-file" type="file" accept=".json,application/json"
-               class="sr">
+      <div class="row-2">
+        <label class="check"><input id="m-io-logs" type="checkbox"><span>Inclure le journal</span></label>
+        <label class="check"><input id="m-io-ratings" type="checkbox" checked><span>Notations détaillées</span></label>
       </div>
-
-      <div id="ui-io-report" class="io-prev io-rep" hidden></div>
-
-    </div>
-    <div class="m-f">
-      <button class="btn" type="button" data-close="m-io">Fermer</button>
-      <button id="btn-io-export" class="btn pri" type="button">
-        ⬇ Télécharger</button>
+      <p id="ui-io-preview" class="muted"></p>
+      <button id="btn-export" class="btn btn-primary btn-block btn-xs">⬇ Télécharger</button>
+      <hr class="sep">
+      <p class="muted">Import JSON (format de cet export)</p>
+      <input id="m-io-file" type="file" accept=".json,application/json" hidden>
+      <div class="row-2">
+        <button id="btn-import-file" class="btn btn-ghost btn-xs">📁 Choisir un fichier</button>
+        <button id="btn-import"      class="btn btn-primary btn-xs" disabled>⬆ Importer</button>
+      </div>
+      <pre id="ui-io-report" class="report" hidden></pre>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════
-     MODALE · CONFIRMATION GÉNÉRIQUE (renvoie une Promise)
-     ════════════════════════════════════════════════════════════════════ -->
-<div id="m-confirm" class="modal">
-  <div class="mbox sm">
-    <div class="m-h">
-      <h2 id="m-confirm-title">Confirmer</h2>
-    </div>
-    <div class="m-b">
-      <p id="m-confirm-body" style="font-size:13.5px;line-height:1.6"></p>
-    </div>
-    <div class="m-f">
-      <button id="btn-confirm-cancel" class="btn" type="button">Annuler</button>
-      <button id="btn-confirm-ok" class="btn dang" type="button">Confirmer</button>
+<div id="m-confirm" class="modal" hidden>
+  <div class="modal-card modal-sm">
+    <header class="modal-head"><h2 id="ui-confirm-title">Confirmer</h2></header>
+    <div class="modal-body">
+      <p id="ui-confirm-text"></p>
+      <div class="row-2">
+        <button id="btn-confirm-cancel" class="btn btn-ghost btn-xs">Annuler</button>
+        <button id="btn-confirm-ok"     class="btn btn-danger btn-xs">Confirmer</button>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════
-     TOASTS
-     ════════════════════════════════════════════════════════════════════ -->
-<div id="app-toasts" aria-live="polite"></div>
+<!-- ══════════ MENU PARAMÈTRES ══════════ -->
+<div id="ui-settings-menu" class="pop" hidden>
+  <button id="btn-types"    class="pop-item">🏷️ Types de lieux</button>
+  <button id="btn-criteria" class="pop-item">⭐ Critères de notation</button>
+  <button id="btn-cols"     class="pop-item">📋 Colonnes du tableau</button>
+  <button id="btn-io"       class="pop-item">↕️ Import / Export</button>
+</div>
 
-<!-- ════════════════════════════════════════════════════════════════════
-     LIBRAIRIES
-     ════════════════════════════════════════════════════════════════════ -->
+<!-- ══════════ SCRIPTS ══════════ -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-
-<script>
-'use strict';
-/* ═══════════════════════════════════════════════════════════════════════
-   PROSPECTION · LIEUX CULTURELS
-   Sections : 0 CONFIG · 1 CONSTANTES · 2 STATE · 3 DOM/EL · 4 HELPERS ·
-              5 SANITIZE · 6 SCORE · 7 AUTH · 8 DATA · 9 FILTRES ·
-              10 CARTE · 11 LISTE · 12 TABLEAU · 13 DASHBOARD ·
-              14 FICHE · 15 SETTINGS · 16 IO · 17 BOOT
-   ═══════════════════════════════════════════════════════════════════════ */
-
-/* ═══ 0 · CONFIG ══════════════════════════════════════════════════════ */
-
-const SUPA_URL = 'https://hawimjftwmrwljkjsnzu.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhd2ltamZ0d21yd2xqa2pzbnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjk4MTIsImV4cCI6MjEwMDgwNTgxMn0.Ej-PlxrKOd8cL9m3yQfIh3H9AvvDjY_d2xWGZskCz1s';
-
-const MAP_TILES  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-const MAP_ATTRIB = '&copy; OpenStreetMap &copy; CARTO';
-const MAP_START  = { lat: 46.6, lng: 2.4, zoom: 6 };   // France entière
-const GEOCODE_URL = 'https://nominatim.openstreetmap.org/search';
-
-const LS_FILTERS = 'plc.filters.v1';
-const LS_COLUMNS = 'plc.columns.v1';
-
-const TEXT_MAX  = 4000;   // troncature des champs texte longs
-const SHORT_MAX = 300;    // troncature des champs texte courts
-const LOG_MAX   = 4000;
-
-const sb = window.supabase.createClient(SUPA_URL, SUPA_KEY);
-
-
-/* ═══ 1 · CONSTANTES ══════════════════════════════════════════════════ */
-
-/* ── 1.1 Énums applicatifs ────────────────────────────────────────────
-   Chaque énum = { valeur: libellé }. Toute valeur absente est rejetée
-   par sanitize() et remplacée par null. */
-
-const ENUMS = {
-  relation: {
-    reperage:    'Repérage',
-    contact:     'Contact pris',
-    echange:     'En échange',
-    partenariat: 'Partenariat',
-    ecarte:      'Écarté'
-  },
-  legal_form: {
-    assoc:  'Association', scop: 'SCOP / SCIC', sci: 'SCI',
-    sas:    'SAS / SARL',   public: 'Public',    prive: 'Privé',
-    autre:  'Autre'
-  },
-  governance: {
-    collegiale: 'Collégiale', directive: 'Directive',
-    mixte:      'Mixte',      inconnue:  'Inconnue'
-  },
-  business_model: {
-    locatif:      'Locatif',      subventionne: 'Subventionné',
-    mixte:        'Mixte',        commercial:   'Commercial',
-    benevole:     'Bénévole'
-  },
-  tenure: {
-    proprio: 'Propriétaire', bail: 'Bail', precaire: 'Précaire',
-    pret:    'Prêt / mise à dispo', inconnu: 'Inconnu'
-  },
-  status: {
-    todo:        'À faire',   contacte: 'Contacté', visite: 'Visité',
-    negociation: 'Négociation', valide: 'Validé',   ecarte: 'Écarté'
-  },
-  priority: { low: 'Basse', mid: 'Moyenne', high: 'Haute' }
-};
-
-/* Listes de tags bornées : proposées en suggestion, saisie libre permise. */
-const TAG_SETS = {
-  revenue_sources: ['Loyers', 'Subventions', 'Billetterie', 'Bar / resto',
-    'Mécénat', 'Formations', 'Prestations', 'Adhésions', 'Boutique',
-    'Location d\'espaces'],
-  activities: ['Ateliers', 'Résidences', 'Expositions', 'Concerts',
-    'Spectacle', 'Cinéma', 'Fablab', 'Coworking', 'Restauration',
-    'Éducation', 'Sérigraphie', 'Céramique', 'Bois', 'Métal',
-    'Photo / labo', 'Danse', 'Studio son'],
-  features: ['Quai de chargement', 'Monte-charge', 'Grande hauteur',
-    'Lumière naturelle', 'Eau courante', 'Triphasé', 'Chauffage',
-    'Isolation', 'Extraction d\'air', 'Cour / extérieur', 'Parking',
-    'Accès PMR', 'Sanitaires', 'Cuisine', 'Stockage', 'Gardiennage'],
-  tags: []
-};
-
-/* ── 1.2 Presets de critères ──────────────────────────────────────────
-   POUR AJOUTER UN PRESET : copie un bloc, change la clé et le contenu.
-   `key` doit être un slug stable (a-z, 0-9, _) car il sert de clé
-   dans places.ratings. `w` = poids. C'est tout. */
-
-const CRITERIA_PRESETS = {
-  defaut: {
-    label: 'Défaut (généraliste)',
-    items: [
-      { key: 'lumiere',      label: 'Lumière',              w: 1 },
-      { key: 'surface',      label: 'Surface / volume',     w: 1 },
-      { key: 'acces',        label: 'Accessibilité',        w: 1 },
-      { key: 'cout',         label: 'Coût',                 w: 1 },
-      { key: 'ambiance',     label: 'Ambiance / communauté', w: 1 },
-      { key: 'potentiel',    label: 'Potentiel',            w: 1 }
-    ]
-  },
-  friche: {
-    label: 'Friche / tiers-lieu',
-    items: [
-      { key: 'volume',       label: 'Volume disponible',    w: 1.5 },
-      { key: 'etat_bati',    label: 'État du bâti',         w: 1.5 },
-      { key: 'securite',     label: 'Sécurité / normes',    w: 1.2 },
-      { key: 'reseaux',      label: 'Réseaux (eau/élec)',   w: 1.2 },
-      { key: 'stabilite',    label: 'Stabilité juridique',  w: 1.5 },
-      { key: 'voisinage',    label: 'Voisinage / nuisances', w: 0.8 },
-      { key: 'transport',    label: 'Desserte transports',  w: 1 },
-      { key: 'cout',         label: 'Coût',                 w: 1.2 }
-    ]
-  },
-  galerie: {
-    label: 'Galerie / lieu d\'exposition',
-    items: [
-      { key: 'lumiere',      label: 'Qualité de lumière',   w: 1.5 },
-      { key: 'lineaire',     label: 'Linéaire de cimaises', w: 1.5 },
-      { key: 'vitrine',      label: 'Vitrine / visibilité', w: 1.3 },
-      { key: 'flux',         label: 'Flux piéton',          w: 1.2 },
-      { key: 'reseau',       label: 'Réseau / réputation',  w: 1.2 },
-      { key: 'cout',         label: 'Coût',                 w: 1 },
-      { key: 'logistique',   label: 'Logistique œuvres',    w: 1 }
-    ]
-  },
-  atelier: {
-    label: 'Atelier de production',
-    items: [
-      { key: 'surface',      label: 'Surface de travail',   w: 1.5 },
-      { key: 'hauteur',      label: 'Hauteur sous plafond', w: 1.3 },
-      { key: 'acces_lourd',  label: 'Accès matériel lourd', w: 1.4 },
-      { key: 'elec',         label: 'Puissance électrique', w: 1.2 },
-      { key: 'nuisances',    label: 'Tolérance nuisances',  w: 1.3 },
-      { key: 'stockage',     label: 'Stockage',             w: 1 },
-      { key: 'cout',         label: 'Coût au m²',           w: 1.4 },
-      { key: 'bail',         label: 'Durée du bail',        w: 1.2 }
-    ]
-  }
-};
-
-const DEFAULT_TYPES = [
-  { label: 'Atelier d\'artiste', emoji: '🎨', color: '#f59e0b' },
-  { label: 'Tiers-lieu',         emoji: '🏭', color: '#10b981' },
-  { label: 'Friche',             emoji: '🧱', color: '#ef4444' },
-  { label: 'Galerie',            emoji: '🖼', color: '#8b5cf6' },
-  { label: 'Autre',              emoji: '📍', color: '#64748b' }
-];
-
-/* ── 1.3 Schéma des champs de la fiche ────────────────────────────────
-   SOURCE DE VÉRITÉ UNIQUE pour la fiche lieu.
-   Le JS génère le HTML *et* lit/écrit depuis ce tableau : un champ
-   déclaré ici existe forcément dans le DOM, avec l'id `f-<key>`.
-   type : text | textarea | num | int | date | select | tags | check
-   sec  : identifiant de section (voir SECTIONS)
-   col  : 1 = pleine largeur, 2 = demi-largeur (défaut) */
-
-const FIELDS = [
-  /* Identité */
-  { key: 'name',        label: 'Nom du lieu',       type: 'text',     sec: 'id', col: 1, req: true },
-  { key: 'type_id',     label: 'Type',              type: 'select',   sec: 'id', src: 'types' },
-  { key: 'relation',    label: 'Relation',          type: 'select',   sec: 'id', src: 'relation' },
-  { key: 'opened_year', label: 'Année d\'ouverture', type: 'int',     sec: 'id', min: 1800, max: 2100 },
-  { key: 'description', label: 'Description',       type: 'textarea', sec: 'id', col: 1 },
-
-  /* Localisation */
-  { key: 'address', label: 'Adresse',   type: 'text', sec: 'loc', col: 1 },
-  { key: 'city',    label: 'Ville',     type: 'text', sec: 'loc' },
-  { key: 'zip',     label: 'Code postal', type: 'text', sec: 'loc' },
-  { key: 'country', label: 'Pays',      type: 'text', sec: 'loc' },
-  { key: 'lat',     label: 'Latitude',  type: 'num',  sec: 'loc', step: 'any' },
-  { key: 'lng',     label: 'Longitude', type: 'num',  sec: 'loc', step: 'any' },
-
-  /* Contact */
-  { key: 'contact_name', label: 'Personne de contact', type: 'text', sec: 'ct' },
-  { key: 'email',   label: 'E-mail',    type: 'text', sec: 'ct' },
-  { key: 'phone',   label: 'Téléphone', type: 'text', sec: 'ct' },
-  { key: 'website', label: 'Site web',  type: 'text', sec: 'ct' },
-  { key: 'social',  label: 'Réseaux sociaux', type: 'text', sec: 'ct', col: 1 },
-  { key: 'tags',    label: 'Tags libres', type: 'tags', sec: 'ct', col: 1 },
-
-  /* Structure */
-  { key: 'legal_form', label: 'Forme juridique', type: 'select', sec: 'st', src: 'legal_form' },
-  { key: 'governance', label: 'Gouvernance',     type: 'select', sec: 'st', src: 'governance' },
-  { key: 'owner',      label: 'Propriétaire',    type: 'text',   sec: 'st', col: 1 },
-  { key: 'team_fte',   label: 'Équipe (ETP)',    type: 'num',    sec: 'st', min: 0 },
-  { key: 'volunteers', label: 'Bénévoles',       type: 'int',    sec: 'st', min: 0 },
-
-  /* Économie */
-  { key: 'business_model',  label: 'Modèle économique', type: 'select', sec: 'ec', src: 'business_model' },
-  { key: 'budget_annual',   label: 'Budget annuel (€)', type: 'int',    sec: 'ec', min: 0 },
-  { key: 'subsidy_pct',     label: 'Part de subvention (%)', type: 'int', sec: 'ec', min: 0, max: 100 },
-  { key: 'revenue_sources', label: 'Sources de revenus', type: 'tags',  sec: 'ec', col: 1 },
-  { key: 'funders',         label: 'Financeurs',        type: 'text',   sec: 'ec', col: 1 },
-  { key: 'business_notes',  label: 'Notes économiques', type: 'textarea', sec: 'ec', col: 1 },
-
-  /* Activité */
-  { key: 'activities',    label: 'Activités',            type: 'tags', sec: 'ac', col: 1 },
-  { key: 'studios_count', label: 'Nombre d\'ateliers',   type: 'int',  sec: 'ac', min: 0 },
-  { key: 'residents_year', label: 'Résidents / an',      type: 'int',  sec: 'ac', min: 0 },
-  { key: 'audience_year', label: 'Public / an',          type: 'int',  sec: 'ac', min: 0 },
-
-  /* Bâti */
-  { key: 'surface_total', label: 'Surface totale (m²)',  type: 'num', sec: 'bt', min: 0 },
-  { key: 'surface_expo',  label: 'Surface d\'expo (m²)', type: 'num', sec: 'bt', min: 0 },
-  { key: 'ceiling_h',     label: 'Hauteur plafond (m)',  type: 'num', sec: 'bt', min: 0 },
-  { key: 'floors',        label: 'Niveaux',              type: 'int', sec: 'bt', ph: 'ex: 2 (ou -1 pour sous-sol)' },
-  { key: 'tenure',        label: 'Occupation',           type: 'select', sec: 'bt', src: 'tenure' },
-  { key: 'rent_month',    label: 'Loyer mensuel (€)',    type: 'int', sec: 'bt', min: 0 },
-  { key: 'charges_month', label: 'Charges mensuelles (€)', type: 'int', sec: 'bt', min: 0 },
-  { key: 'lease_end',     label: 'Fin de bail',          type: 'date', sec: 'bt' },
-  { key: 'features',      label: 'Équipements',          type: 'tags', sec: 'bt', col: 1 },
-  { key: 'transport',     label: 'Desserte / transports', type: 'text', sec: 'bt', col: 1 },
-  { key: 'constraints',   label: 'Contraintes',          type: 'textarea', sec: 'bt', col: 1 },
-
-  /* Évaluation — les sliders de notation sont générés séparément */
-  { key: 'strengths',  label: 'Points forts',    type: 'textarea', sec: 'ev', col: 1 },
-  { key: 'weaknesses', label: 'Points faibles',  type: 'textarea', sec: 'ev', col: 1 },
-  { key: 'takeaway',   label: 'À retenir',       type: 'textarea', sec: 'ev', col: 1 },
-
-  /* Suivi */
-  { key: 'status',      label: 'Statut',            type: 'select', sec: 'su', src: 'status' },
-  { key: 'priority',    label: 'Priorité',          type: 'select', sec: 'su', src: 'priority' },
-  { key: 'visit_date',  label: 'Date de visite',    type: 'date',   sec: 'su' },
-  { key: 'next_date',   label: 'Prochaine échéance', type: 'date',  sec: 'su' },
-  { key: 'next_action', label: 'Prochaine action',  type: 'text',   sec: 'su', col: 1 },
-  { key: 'links',       label: 'Liens',             type: 'textarea', sec: 'su', col: 1 }
-];
-
-const SECTIONS = [
-  { id: 'id', label: '📇 Identité',     open: true  },
-  { id: 'loc', label: '📍 Localisation', open: true  },
-  { id: 'ct', label: '☎️ Contact',      open: false },
-  { id: 'st', label: '⚖️ Structure',    open: false },
-  { id: 'ec', label: '💰 Économie',     open: false },
-  { id: 'ac', label: '🎭 Activité',     open: false },
-  { id: 'bt', label: '🏗 Bâti',         open: false },
-  { id: 'ev', label: '⭐ Évaluation',    open: true  },
-  { id: 'su', label: '📌 Suivi',        open: false },
-  { id: 'lg', label: '📝 Journal',      open: false }
-];
-
-/* ── 1.4 Colonnes du tableau ──────────────────────────────────────────
-   `get` reçoit le lieu et renvoie une CHAÎNE (jamais du HTML). */
-
-const COLUMNS = [
-  { key: 'name',    label: 'Nom',      def: true,  get: p => p.name || '—' },
-  { key: 'type',    label: 'Type',     def: true,  get: p => typeLabel(p.type_id) },
-  { key: 'city',    label: 'Ville',    def: true,  get: p => p.city || '—' },
-  { key: 'score',   label: 'Score',    def: true,  get: p => p.score == null ? '—' : fmtNum(p.score, 1), num: true },
-  { key: 'status',  label: 'Statut',   def: true,  get: p => ENUMS.status[p.status] || '—' },
-  { key: 'priority', label: 'Priorité', def: true, get: p => ENUMS.priority[p.priority] || '—' },
-  { key: 'surface_total', label: 'Surface', def: true, get: p => p.surface_total ? fmtNum(p.surface_total) + ' m²' : '—', num: true },
-  { key: 'rent_month', label: 'Loyer', def: false, get: p => p.rent_month ? fmtNum(p.rent_month) + ' €' : '—', num: true },
-  { key: 'relation', label: 'Relation', def: false, get: p => ENUMS.relation[p.relation] || '—' },
-  { key: 'legal_form', label: 'Juridique', def: false, get: p => ENUMS.legal_form[p.legal_form] || '—' },
-  { key: 'governance', label: 'Gouvernance', def: false, get: p => ENUMS.governance[p.governance] || '—' },
-  { key: 'business_model', label: 'Modèle éco', def: false, get: p => ENUMS.business_model[p.business_model] || '—' },
-  { key: 'tenure',  label: 'Occupation', def: false, get: p => ENUMS.tenure[p.tenure] || '—' },
-  { key: 'opened_year', label: 'Ouverture', def: false, get: p => p.opened_year || '—', num: true },
-  { key: 'ceiling_h', label: 'Plafond', def: false, get: p => p.ceiling_h ? fmtNum(p.ceiling_h, 1) + ' m' : '—', num: true },
-  { key: 'studios_count', label: 'Ateliers', def: false, get: p => p.studios_count ?? '—', num: true },
-  { key: 'team_fte', label: 'ETP', def: false, get: p => p.team_fte ?? '—', num: true },
-  { key: 'budget_annual', label: 'Budget', def: false, get: p => p.budget_annual ? fmtNum(p.budget_annual) + ' €' : '—', num: true },
-  { key: 'visit_date', label: 'Visite', def: false, get: p => p.visit_date || '—' },
-  { key: 'next_date', label: 'Échéance', def: false, get: p => p.next_date || '—' },
-  { key: 'next_action', label: 'Action', def: false, get: p => p.next_action || '—' },
-  { key: 'contact_name', label: 'Contact', def: false, get: p => p.contact_name || '—' },
-  { key: 'email',   label: 'E-mail',  def: false, get: p => p.email || '—' },
-  { key: 'phone',   label: 'Tél.',    def: false, get: p => p.phone || '—' }
-];
-
-const SORTS = {
-  recent:  (a, b) => (b.created_at || '').localeCompare(a.created_at || ''),
-  score:   (a, b) => (b.score ?? -1) - (a.score ?? -1),
-  name:    (a, b) => (a.name || '').localeCompare(b.name || '', 'fr'),
-  surface: (a, b) => (b.surface_total ?? -1) - (a.surface_total ?? -1),
-  rent:    (a, b) => (a.rent_month ?? 1e12) - (b.rent_month ?? 1e12),
-  year:    (a, b) => (b.opened_year ?? -1) - (a.opened_year ?? -1)
-};
-
-/* Filtres multi-select : id du <select> → champ du lieu + source d'options */
-const MULTI_FILTERS = [
-  { el: 'flt-type',     field: 'type_id',        src: 'types' },
-  { el: 'flt-status',   field: 'status',         src: 'status' },
-  { el: 'flt-relation', field: 'relation',       src: 'relation' },
-  { el: 'flt-priority', field: 'priority',       src: 'priority' },
-  { el: 'flt-legal',    field: 'legal_form',     src: 'legal_form' },
-  { el: 'flt-gov',      field: 'governance',     src: 'governance' },
-  { el: 'flt-model',    field: 'business_model', src: 'business_model' }
-];
-
-
-/* ═══ 2 · STATE ═══════════════════════════════════════════════════════ */
-
-const S = {
-  user: null,
-  places: [],
-  types: [],
-  criteria: [],
-  logs: [],              // logs du lieu ouvert uniquement
-  view: 'map',           // map | table | dash
-  selectedId: null,
-  draft: null,           // copie de travail du lieu ouvert
-  dirty: false,
-  pinMode: false,
-  filters: defaultFilters(),
-  columns: COLUMNS.filter(c => c.def).map(c => c.key),
-  map: null,
-  markers: new Map(),    // place.id → L.Marker
-  meMarker: null,
-  pinMarker: null,
-  importRows: null
-};
-
-function defaultFilters() {
-  return {
-    q: '', type: [], status: [], relation: [], priority: [],
-    legal_form: [], governance: [], business_model: [],
-    score: 0, surfaceMin: null, surfaceMax: null,
-    fav: false, viewport: false, sort: 'recent'
-  };
-}
-
-
-/* ═══ 3 · DOM / EL ════════════════════════════════════════════════════ */
-
-/* Registre unique. Peuplé au boot, complété après chaque génération
-   de fiche par indexSheet(). On n'écrit JAMAIS de querySelector ailleurs. */
-const EL = {};
-
-function indexDom(root) {
-  (root || document).querySelectorAll('[id]').forEach(n => { EL[n.id] = n; });
-}
-
-/* Liste des ids statiques attendus. Doit refléter le HTML à l'identique. */
-const REQUIRED_IDS = [
-  /* app */
-  'app-root', 'app-shell', 'app-topbar', 'app-tabs', 'app-body',
-  'app-sidebar', 'app-filters', 'app-main', 'app-overlay', 'app-toasts',
-  /* auth */
-  'auth-screen', 'auth-form', 'auth-title', 'auth-email', 'auth-pass',
-  'auth-submit', 'auth-toggle', 'auth-msg', 'auth-mode-label',
-  /* vues */
-  'v-map', 'v-map-canvas', 'v-table', 'v-dash',
-  /* boutons */
-  'btn-sidebar-toggle', 'btn-logout', 'btn-new', 'btn-io', 'btn-types',
-  'btn-criteria', 'btn-columns',
-  'btn-tab-map', 'btn-tab-table', 'btn-tab-dash',
-  'btn-map-fit', 'btn-map-locate', 'btn-map-pin', 'btn-map-viewport',
-  'btn-filters-reset', 'btn-filters-toggle',
-  'btn-preset-recent', 'btn-preset-top', 'btn-preset-todo', 'btn-preset-fav',
-  'btn-sheet-close', 'btn-sheet-save', 'btn-sheet-fav', 'btn-sheet-dup',
-  'btn-sheet-del',
-  'btn-type-add', 'btn-criteria-add', 'btn-criteria-preset',
-  'btn-io-export', 'btn-io-import', 'btn-io-file',
-  'btn-confirm-ok', 'btn-confirm-cancel',
-  /* filtres */
-  'flt-search', 'flt-type', 'flt-legal', 'flt-gov', 'flt-model',
-  'flt-status', 'flt-relation', 'flt-priority', 'flt-score',
-  'flt-score-val', 'flt-surface-min', 'flt-surface-max', 'flt-fav',
-  'flt-sort', 'flt-viewport',
-  /* ui */
-  'ui-loading', 'ui-user-email', 'ui-count', 'ui-filters-badge',
-  'ui-list', 'ui-list-empty',
-  'ui-table', 'ui-thead', 'ui-tbody', 'ui-table-empty',
-  'ui-kpi-count', 'ui-kpi-score', 'ui-kpi-surface', 'ui-kpi-rent',
-  'ui-dist-status', 'ui-dist-type', 'ui-dist-priority', 'ui-top5',
-  'ui-sheet', 'ui-sheet-title', 'ui-sheet-sub', 'ui-sheet-sections',
-  'ui-sheet-dirty', 'ui-map-hint',
-  'ui-types-list', 'ui-criteria-list', 'ui-columns-list',
-  'ui-io-preview', 'ui-io-report',
-  /* modales */
-  'm-types', 'm-criteria', 'm-columns', 'm-io', 'm-confirm',
-  'm-confirm-title', 'm-confirm-body',
-  'm-io-scope', 'm-io-format', 'm-io-logs', 'm-io-ratings',
-  'm-criteria-preset-select', 'm-io-input-file'
-];
-
-/* ── 3.1 Liste canonique des ids attendus ──────────────────────────── */
-const DOM_IDS = [
-  // Auth
-  'auth-screen','auth-email','auth-password','auth-submit',
-  'auth-toggle','auth-error','auth-title',
-  // Chrome applicatif
-  'app','user-email','btn-logout',
-  'tab-map','tab-table','tab-dash',
-  'view-map','view-table','view-dash',
-  // Filtres
-  'search','filter-type','filter-status','btn-reset-filters',
-  // Carte
-  'map',
-  // Tableau
-  'table-body','table-head','col-toggles','row-count',
-  // Dashboard
-  'kpi-total','kpi-active','kpi-avg-score','dash-by-type','dash-by-status',
-  // Formulaire
-  'modal-place','form-place','btn-save','btn-cancel','btn-delete','btn-new',
-  // Générique
-  'toast-container','confirm-modal','confirm-text','confirm-ok','confirm-cancel',
-];
-
-     
-/* Vérifie l'intégrité du DOM au boot. Ne masque rien : log rouge + throw. */
-function assertDom(ids) {
-  if (!Array.isArray(ids)) {
-    console.error('%cassertDom: liste d\u0027ids absente ou invalide', 'color:red;font-weight:bold');
-    return false;
-  }
-  const missing = ids.filter(id => !EL[id]);
-  if (missing.length) {
-    console.error(
-      '%cIDs manquants dans le DOM (' + missing.length + ') :',
-      'color:red;font-weight:bold', missing
-    );
-    return false;
-  }
-  console.log('%c✓ DOM complet (' + ids.length + ' ids)', 'color:#4ade80');
-  return true;
-}
-
-/* Vérifie les champs générés de la fiche. */
-function assertFields() {
-  const missing = FIELDS.filter(f => !EL['f-' + f.key]).map(f => 'f-' + f.key);
-  if (missing.length) {
-    console.error('%c✗ CHAMPS FICHE MANQUANTS :', 'color:#fff;background:#dc2626;padding:2px 6px', missing);
-  }
-  return !missing.length;
-}
-
-/* Attache un handler UNIQUEMENT si l'élément existe. No-op + warn sinon.
-   C'est la seule voie autorisée pour brancher un écouteur. */
-function on(id, evt, fn, opts) {
-  const n = EL[id];
-  if (!n) { console.warn('on(): #' + id + ' introuvable · ' + evt + ' ignoré'); return false; }
-  n.addEventListener(evt, fn, opts);
-  return true;
-}
-
-/* Délégation d'événement sur un conteneur, pour les listes régénérées. */
-function onDelegate(id, evt, selector, fn) {
-  const n = EL[id];
-  if (!n) { console.warn('onDelegate(): #' + id + ' introuvable'); return false; }
-  n.addEventListener(evt, e => {
-    const t = e.target.closest(selector);
-    if (t && n.contains(t)) fn(e, t);
-  });
-  return true;
-}
-
-
-/* ═══ 4 · HELPERS ═════════════════════════════════════════════════════ */
-
-/* ── 4.1 Échappement — obligatoire avant toute insertion HTML ───────── */
-function esc(v) {
-  if (v == null) return '';
-  const d = document.createElement('div');
-  d.textContent = String(v);
-  return d.innerHTML;
-}
-
-/* ── 4.2 Création de nœuds (préféré à innerHTML) ────────────────────── */
-function el(tag, attrs, kids) {
-  const n = document.createElement(tag);
-  if (attrs) for (const k in attrs) {
-    const v = attrs[k];
-    if (v == null || v === false) continue;
-    if (k === 'class') n.className = v;
-    else if (k === 'text') n.textContent = v;
-    else if (k === 'html') n.innerHTML = v;          // seulement chaînes internes
-    else if (k.startsWith('data-') || k === 'id' || k === 'for' || k === 'type'
-             || k === 'value' || k === 'title' || k === 'href' || k === 'style')
-      n.setAttribute(k, v);
-    else n[k] = v;
-  }
-  if (kids) (Array.isArray(kids) ? kids : [kids]).forEach(c => {
-    if (c == null) return;
-    n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
-  });
-  return n;
-}
-function clear(node) { while (node && node.firstChild) node.removeChild(node.firstChild); }
-
-/* ── 4.3 Formatage ─────────────────────────────────────────────────── */
-function fmtNum(v, d) {
-  if (v == null || v === '' || isNaN(v)) return '—';
-  return Number(v).toLocaleString('fr-FR', {
-    minimumFractionDigits: d || 0, maximumFractionDigits: d || 0
-  });
-}
-function stars(score) {
-  if (score == null) return '—';
-  const full = Math.round(score);
-  return '★'.repeat(full) + '☆'.repeat(Math.max(0, 5 - full));
-}
-function slug(s) {
-  return String(s || '').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'critere';
-}
-function median(arr) {
-  const a = arr.filter(v => v != null && !isNaN(v)).map(Number).sort((x, y) => x - y);
-  if (!a.length) return null;
-  const m = Math.floor(a.length / 2);
-  return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
-}
-function debounce(fn, ms) {
-  let t; return function (...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); };
-}
-
-/* ── 4.4 Toasts ────────────────────────────────────────────────────── */
-function toast(msg, kind, ms) {
-  const box = EL['app-toasts'];
-  if (!box) { console.log('[toast]', kind || 'info', msg); return; }
-  const t = el('div', { class: 'toast ' + (kind || 'info'), text: String(msg) });
-  box.appendChild(t);
-  setTimeout(() => {
-    t.style.opacity = '0'; t.style.transform = 'translateY(6px)';
-    setTimeout(() => t.remove(), 220);
-  }, ms || (kind === 'err' ? 5200 : 2800));
-}
-const ok   = m => toast(m, 'ok');
-const err  = m => toast(m, 'err');
-const info = m => toast(m, 'info');
-
-/* ── 4.5 Modales ───────────────────────────────────────────────────── */
-function openModal(id) { if (EL[id]) EL[id].classList.add('on'); }
-function closeModal(id) { if (EL[id]) EL[id].classList.remove('on'); }
-function anyModalOpen() {
-  return ['m-types', 'm-criteria', 'm-columns', 'm-io', 'm-confirm']
-    .some(id => EL[id] && EL[id].classList.contains('on'));
-}
-function closeAllModals() {
-  ['m-types', 'm-criteria', 'm-columns', 'm-io', 'm-confirm'].forEach(closeModal);
-}
-
-/* Confirmation générique → Promise<boolean> */
-function confirmDialog(title, body, okLabel) {
-  return new Promise(resolve => {
-    if (!EL['m-confirm']) { resolve(window.confirm(title + '\n' + body)); return; }
-    EL['m-confirm-title'].textContent = title;
-    EL['m-confirm-body'].textContent  = body;
-    EL['btn-confirm-ok'].textContent  = okLabel || 'Confirmer';
-    openModal('m-confirm');
-
-    const done = v => {
-      EL['btn-confirm-ok'].removeEventListener('click', onOk);
-      EL['btn-confirm-cancel'].removeEventListener('click', onNo);
-      closeModal('m-confirm'); resolve(v);
-    };
-    const onOk = () => done(true);
-    const onNo = () => done(false);
-    EL['btn-confirm-ok'].addEventListener('click', onOk);
-    EL['btn-confirm-cancel'].addEventListener('click', onNo);
-  });
-}
-
-/* ── 4.6 localStorage tolérant ─────────────────────────────────────── */
-function lsGet(key, fallback) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
-  catch (e) { return fallback; }
-}
-function lsSet(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* quota */ }
-}
-
-/* ── 4.7 Accès aux libellés ────────────────────────────────────────── */
-function typeOf(id) { return S.types.find(t => t.id === id) || null; }
-function typeLabel(id) { const t = typeOf(id); return t ? t.label : '—'; }
-function typeEmoji(id) { const t = typeOf(id); return t ? (t.emoji || '📍') : '📍'; }
-function typeColor(id) { const t = typeOf(id); return t ? (t.color || '#6366f1') : '#64748b'; }
-
-/* Remplit un <select> ; opts = {value:label} ou tableau d'objets. */
-function fillSelect(node, opts, placeholder, multiple) {
-  if (!node) return;
-  clear(node);
-  if (!multiple) node.appendChild(el('option', { value: '', text: placeholder || '—' }));
-  const entries = Array.isArray(opts)
-    ? opts.map(o => [o.id, (o.emoji ? o.emoji + ' ' : '') + o.label])
-    : Object.entries(opts);
-  entries.forEach(([v, l]) => node.appendChild(el('option', { value: v, text: l })));
-}
-
-
-/* ═══ 5 · SANITIZE ════════════════════════════════════════════════════ */
-
-/* Schéma typé du payload `places`. Toute clé absente d'ici n'est jamais
-   envoyée à Postgres — protection contre l'injection de colonnes. */
-const PLACE_SCHEMA = (() => {
-  const sch = {
-    name:     { t: 'txt', max: 200, req: true },
-    type_id:  { t: 'uuid' },
-    ratings:  { t: 'ratings' },
-    score:    { t: 'num', min: 0, max: 5 },
-    favorite: { t: 'bool' }
-  };
-  FIELDS.forEach(f => {
-    if (sch[f.key]) return;
-    if (f.type === 'select' && f.src && ENUMS[f.src]) sch[f.key] = { t: 'enum', src: f.src };
-    else if (f.type === 'tags')     sch[f.key] = { t: 'arr' };
-    else if (f.type === 'int')      sch[f.key] = { t: 'int', min: f.min, max: f.max };
-    else if (f.type === 'num')      sch[f.key] = { t: 'num', min: f.min, max: f.max };
-    else if (f.type === 'date')     sch[f.key] = { t: 'date' };
-    else if (f.type === 'textarea') sch[f.key] = { t: 'txt', max: TEXT_MAX };
-    else                            sch[f.key] = { t: 'txt', max: SHORT_MAX };
-  });
-  return sch;
-})();
-
-function sTxt(v, max) {
-  if (v == null) return null;
-  const s = String(v).replace(/\u0000/g, '').trim();
-  return s ? s.slice(0, max || SHORT_MAX) : null;
-}
-function sNum(v, min, max) {
-  if (v === '' || v == null) return null;
-  const n = Number(v);
-  if (!isFinite(n)) return null;
-  if (min != null && n < min) return min;
-  if (max != null && n > max) return max;
-  return n;
-}
-function sInt(v, min, max) { const n = sNum(v, min, max); return n == null ? null : Math.round(n); }
-function sEnum(v, src) { return (v && ENUMS[src] && ENUMS[src][v]) ? v : null; }
-function sDate(v) {
-  if (!v) return null;
-  const s = String(v).slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const d = new Date(s + 'T00:00:00Z');
-  return isNaN(d.getTime()) ? null : s;
-}
-function sUuid(v) {
-  const s = String(v || '');
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) ? s : null;
-}
-function sArr(v) {
-  if (!Array.isArray(v)) return [];
-  return v.map(x => sTxt(x, 80)).filter(Boolean).slice(0, 60);
-}
-function sBool(v) { return v === true || v === 'true' || v === 1; }
-
-/* Notations : ne conserve que les clés de critères existantes, bornées 0–5. */
-function sRatings(v) {
-  const out = {};
-  if (!v || typeof v !== 'object') return out;
-  const valid = new Set(S.criteria.map(c => c.key));
-  Object.keys(v).forEach(k => {
-    if (!valid.has(k)) return;
-    const n = sNum(v[k], 0, 5);
-    if (n != null) out[k] = n;
-  });
-  return out;
-}
-
-/* Point d'entrée unique avant toute écriture dans `places`. */
-function sanitizePlace(raw) {
-  const out = {};
-  for (const key in PLACE_SCHEMA) {
-    const d = PLACE_SCHEMA[key];
-    const v = raw[key];
-    switch (d.t) {
-      case 'txt':     out[key] = sTxt(v, d.max); break;
-      case 'int':     out[key] = sInt(v, d.min, d.max); break;
-      case 'num':     out[key] = sNum(v, d.min, d.max); break;
-      case 'enum':    out[key] = sEnum(v, d.src); break;
-      case 'date':    out[key] = sDate(v); break;
-      case 'uuid':    out[key] = sUuid(v); break;
-      case 'arr':     out[key] = sArr(v); break;
-      case 'bool':    out[key] = sBool(v); break;
-      case 'ratings': out[key] = sRatings(v); break;
-    }
-  }
-  /* Cohérence géographique : lat/lng valides ou les deux à null. */
-  const la = sNum(out.lat, -90, 90), ln = sNum(out.lng, -180, 180);
-  out.lat = (la == null || ln == null) ? null : la;
-  out.lng = (la == null || ln == null) ? null : ln;
-  if (!out.name) out.name = 'Sans nom';
-  return out;
-}
-
-/* ═══ 6 · SCORE ═══════════════════════════════════════════════════════ */
-
-/* Moyenne pondérée des notations, bornée 0–5. null si aucune note. */
-function computeScore(ratings) {
-  if (!ratings || typeof ratings !== 'object') return null;
-  let sum = 0, wsum = 0;
-  S.criteria.forEach(c => {
-    const v = ratings[c.key];
-    if (v == null || isNaN(v)) return;
-    const w = Number(c.weight) || 1;
-    sum += Number(v) * w;
-    wsum += w;
-  });
-  if (!wsum) return null;
-  return Math.round((sum / wsum) * 100) / 100;
-}
-
-/* Nombre de critères notés / total — pour afficher la complétude. */
-function scoreCoverage(ratings) {
-  if (!ratings) return { done: 0, total: S.criteria.length };
-  const done = S.criteria.filter(c => ratings[c.key] != null).length;
-  return { done, total: S.criteria.length };
-}
-
-
-/* ═══ 7 · AUTH ════════════════════════════════════════════════════════ */
-
-let authMode = 'login';   // login | signup
-
-function authSetMode(mode) {
-  authMode = mode;
-  const isLogin = mode === 'login';
-  EL['auth-title'].textContent      = isLogin ? 'Connexion' : 'Créer un compte';
-  EL['auth-submit'].textContent     = isLogin ? 'Se connecter' : 'S\'inscrire';
-  EL['auth-mode-label'].textContent = isLogin ? 'Pas de compte ?' : 'Déjà un compte ?';
-  EL['auth-toggle'].textContent     = isLogin ? 'Créer un compte' : 'Se connecter';
-  authMsg('');
-}
-
-function authMsg(text, kind) {
-  const n = EL['auth-msg'];
-  n.textContent = text || '';
-  n.className = 'auth-msg' + (text ? ' on ' + (kind || 'err') : '');
-}
-
-function authValidate(email, pass) {
-  if (!email || !email.includes('@')) return 'Adresse e-mail invalide.';
-  if (!pass || pass.length < 6) return 'Le mot de passe doit faire au moins 6 caractères.';
-  return null;
-}
-
-async function authSubmit(e) {
-  e.preventDefault();
-  const email = EL['auth-email'].value.trim();
-  const pass  = EL['auth-pass'].value;
-
-  const bad = authValidate(email, pass);
-  if (bad) { authMsg(bad); return; }
-
-  EL['auth-submit'].disabled = true;
-  authMsg('Un instant…', 'info');
-
-  try {
-    if (authMode === 'login') {
-      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-      if (error) throw error;
-    } else {
-      const { data, error } = await sb.auth.signUp({ email, password: pass });
-      if (error) throw error;
-      if (data.user && !data.session) {
-        authMsg('Compte créé. Vérifie ta boîte mail pour confirmer l\'adresse, puis reviens te connecter.', 'info');
-        authSetMode('login');
-        EL['auth-submit'].disabled = false;
-        return;
-      }
-    }
-  } catch (ex) {
-    authMsg(authError(ex));
-    EL['auth-submit'].disabled = false;
-    return;
-  }
-  EL['auth-submit'].disabled = false;
-}
-
-/* Traduction des messages Supabase les plus fréquents. */
-function authError(ex) {
-  const m = String(ex && ex.message || ex);
-  if (/Invalid login credentials/i.test(m)) return 'E-mail ou mot de passe incorrect.';
-  if (/Email not confirmed/i.test(m))       return 'Adresse non confirmée : consulte ta boîte mail.';
-  if (/User already registered/i.test(m))   return 'Un compte existe déjà avec cet e-mail.';
-  if (/rate limit|too many/i.test(m))       return 'Trop de tentatives. Patiente une minute.';
-  if (/Password should be/i.test(m))        return 'Mot de passe trop court (6 caractères minimum).';
-  return m;
-}
-
-async function authLogout() {
-  const yes = await confirmDialog('Se déconnecter ?',
-    'Les modifications non enregistrées seront perdues.', 'Déconnexion');
-  if (!yes) return;
-  await sb.auth.signOut();
-}
-
-/* Bascule entre l'écran d'auth et l'application. */
-function showApp(user) {
-  S.user = user;
-  EL['auth-screen'].classList.remove('on');
-  EL['app-shell'].classList.add('on');
-  EL['ui-user-email'].textContent = user.email || '—';
-}
-function showAuth() {
-  S.user = null;
-  EL['app-shell'].classList.remove('on');
-  EL['auth-screen'].classList.add('on');
-  EL['auth-pass'].value = '';
-  authSetMode('login');
-}
-
-
-/* ═══ 8 · DATA ════════════════════════════════════════════════════════ */
-
-/* ── 8.1 Chargement initial ───────────────────────────────────────── */
-
-async function loadAll() {
-  await sb.rpc('ensure_seed').catch(() => { /* déjà seedé, sans gravité */ });
-  await Promise.all([loadTypes(), loadCriteria()]);
-  await loadPlaces();
-}
-
-async function loadTypes() {
-  const { data, error } = await sb.from('place_types')
-    .select('*').order('sort_order', { ascending: true });
-  if (error) { err('Types : ' + error.message); return; }
-  S.types = data || [];
-  if (!S.types.length) await seedTypes();
-}
-
-async function seedTypes() {
-  const rows = DEFAULT_TYPES.map((t, i) => ({
-    user_id: S.user.id, label: t.label, emoji: t.emoji,
-    color: t.color, sort_order: i
-  }));
-  const { data, error } = await sb.from('place_types').insert(rows).select();
-  if (!error) S.types = data || [];
-}
-
-async function loadCriteria() {
-  const { data, error } = await sb.from('criteria')
-    .select('*').order('sort_order', { ascending: true });
-  if (error) { err('Critères : ' + error.message); return; }
-  S.criteria = data || [];
-  if (!S.criteria.length) await applyPreset('defaut', true);
-}
-
-async function loadPlaces() {
-  const { data, error } = await sb.from('places')
-    .select('*').order('created_at', { ascending: false });
-  if (error) { err('Lieux : ' + error.message); return; }
-  S.places = (data || []).map(p => {
-    p.ratings = p.ratings || {};
-    return p;
-  });
-}
-
-async function loadLogs(placeId) {
-  if (!placeId) { S.logs = []; return; }
-  const { data, error } = await sb.from('logs')
-    .select('*').eq('place_id', placeId)
-    .order('created_at', { ascending: false });
-  if (error) { err('Journal : ' + error.message); S.logs = []; return; }
-  S.logs = data || [];
-}
-
-/* ── 8.2 Écriture des lieux ───────────────────────────────────────── */
-
-async function savePlace(draft) {
-  const payload = sanitizePlace(draft);
-  payload.score = computeScore(payload.ratings);
-
-  if (draft.id) {
-    const { data, error } = await sb.from('places')
-      .update(payload).eq('id', draft.id).select().single();
-    if (error) { err('Enregistrement : ' + error.message); return null; }
-    const i = S.places.findIndex(p => p.id === draft.id);
-    if (i >= 0) S.places[i] = data; else S.places.unshift(data);
-    return data;
-  }
-
-  payload.user_id = S.user.id;
-  const { data, error } = await sb.from('places')
-    .insert(payload).select().single();
-  if (error) { err('Création : ' + error.message); return null; }
-  S.places.unshift(data);
-  return data;
-}
-
-async function deletePlace(id) {
-  const { error } = await sb.from('places').delete().eq('id', id);
-  if (error) { err('Suppression : ' + error.message); return false; }
-  S.places = S.places.filter(p => p.id !== id);
-  return true;
-}
-
-async function duplicatePlace(src) {
-  const copy = sanitizePlace(src);
-  copy.user_id = S.user.id;
-  copy.name = (src.name || 'Sans nom') + ' (copie)';
-  copy.score = computeScore(copy.ratings);
-  const { data, error } = await sb.from('places')
-    .insert(copy).select().single();
-  if (error) { err('Duplication : ' + error.message); return null; }
-  S.places.unshift(data);
-  return data;
-}
-
-async function toggleFavorite(place) {
-  const val = !place.favorite;
-  const { error } = await sb.from('places')
-    .update({ favorite: val }).eq('id', place.id);
-  if (error) { err('Favori : ' + error.message); return; }
-  place.favorite = val;
-  renderAll();
-}
-
-/* ── 8.3 Journal ──────────────────────────────────────────────────── */
-
-async function addLog(placeId, body, kind) {
-  const text = sTxt(body, LOG_MAX);
-  if (!text) { err('Le message est vide.'); return null; }
-  const row = {
-    user_id: S.user.id, place_id: placeId,
-    body: text, kind: sTxt(kind, 40) || 'note'
-  };
-  const { data, error } = await sb.from('logs').insert(row).select().single();
-  if (error) { err('Journal : ' + error.message); return null; }
-  S.logs.unshift(data);
-  return data;
-}
-
-async function deleteLog(id) {
-  const { error } = await sb.from('logs').delete().eq('id', id);
-  if (error) { err('Journal : ' + error.message); return false; }
-  S.logs = S.logs.filter(l => l.id !== id);
-  return true;
-}
-
-/* ── 8.4 Types & critères (paramétrage) ───────────────────────────── */
-
-async function saveType(row) {
-  if (row.id) {
-    const { error } = await sb.from('place_types')
-      .update({ label: row.label, emoji: row.emoji, color: row.color })
-      .eq('id', row.id);
-    if (error) { err(error.message); return false; }
-  } else {
-    const { data, error } = await sb.from('place_types').insert({
-      user_id: S.user.id, label: row.label, emoji: row.emoji,
-      color: row.color, sort_order: S.types.length
-    }).select().single();
-    if (error) { err(error.message); return false; }
-    S.types.push(data);
-    return true;
-  }
-  const t = S.types.find(x => x.id === row.id);
-  if (t) Object.assign(t, row);
-  return true;
-}
-
-async function deleteType(id) {
-  const used = S.places.filter(p => p.type_id === id).length;
-  const msg = used
-    ? used + ' lieu(x) utilisent ce type. Ils passeront à « sans type ».'
-    : 'Ce type sera supprimé définitivement.';
-  const yes = await confirmDialog('Supprimer ce type ?', msg, 'Supprimer');
-  if (!yes) return;
-  const { error } = await sb.from('place_types').delete().eq('id', id);
-  if (error) { err(error.message); return; }
-  S.types = S.types.filter(t => t.id !== id);
-  S.places.forEach(p => { if (p.type_id === id) p.type_id = null; });
-  renderTypesList(); renderAll(); ok('Type supprimé.');
-}
-
-async function saveCriterion(row) {
-  if (row.id) {
-    const { error } = await sb.from('criteria')
-      .update({ label: row.label, weight: row.weight }).eq('id', row.id);
-    if (error) { err(error.message); return false; }
-    const c = S.criteria.find(x => x.id === row.id);
-    if (c) Object.assign(c, row);
-  } else {
-    const { data, error } = await sb.from('criteria').insert({
-      user_id: S.user.id, key: row.key, label: row.label,
-      weight: row.weight, sort_order: S.criteria.length
-    }).select().single();
-    if (error) { err(error.message); return false; }
-    S.criteria.push(data);
-  }
-  return true;
-}
-
-async function deleteCriterion(c) {
-  const rated = S.places.filter(p => p.ratings && p.ratings[c.key] != null).length;
-  const msg = rated
-    ? rated + ' lieu(x) sont notés sur ce critère. Les notes seront ignorées et les scores recalculés.'
-    : 'Ce critère sera supprimé.';
-  const yes = await confirmDialog('Supprimer « ' + c.label + ' » ?', msg, 'Supprimer');
-  if (!yes) return;
-  const { error } = await sb.from('criteria').delete().eq('id', c.id);
-  if (error) { err(error.message); return; }
-  S.criteria = S.criteria.filter(x => x.id !== c.id);
-  await recomputeAllScores();
-  renderCriteriaList(); renderAll(); ok('Critère supprimé.');
-}
-
-/* Applique un preset. `silent` = pas de confirmation (premier boot). */
-async function applyPreset(key, silent) {
-  const preset = CRITERIA_PRESETS[key];
-  if (!preset) { err('Preset inconnu : ' + key); return; }
-
-  if (!silent) {
-    const yes = await confirmDialog(
-      'Charger « ' + preset.label + ' » ?',
-      'Les critères actuels seront remplacés. Les notes déjà saisies sur des '
-      + 'critères disparus seront ignorées et les scores recalculés.',
-      'Charger');
-    if (!yes) return;
-  }
-
-  await sb.from('criteria').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-
-  const rows = preset.items.map((it, i) => ({
-    user_id: S.user.id, key: it.key, label: it.label,
-    weight: it.w, sort_order: i
-  }));
-  const { data, error } = await sb.from('criteria').insert(rows).select();
-  if (error) { err('Preset : ' + error.message); return; }
-  S.criteria = data || [];
-
-  if (!silent) {
-    await recomputeAllScores();
-    renderCriteriaList(); renderAll();
-    ok('Preset « ' + preset.label + ' » chargé.');
-  }
-}
-
-/* Recalcule et persiste tous les scores après changement de critères. */
-async function recomputeAllScores() {
-  const updates = [];
-  S.places.forEach(p => {
-    const clean = sRatings(p.ratings);
-    const sc = computeScore(clean);
-    if (sc !== p.score || Object.keys(clean).length !== Object.keys(p.ratings || {}).length) {
-      p.ratings = clean; p.score = sc;
-      updates.push({ id: p.id, ratings: clean, score: sc });
-    }
-  });
-  for (const u of updates) {
-    await sb.from('places').update({ ratings: u.ratings, score: u.score }).eq('id', u.id);
-  }
-  if (updates.length) info(updates.length + ' score(s) recalculé(s).');
-}
-
-
-/* ═══ 9 · FILTRES ═════════════════════════════════════════════════════ */
-
-/* ── 9.1 Lecture des contrôles → S.filters ────────────────────────── */
-
-function readFilters() {
-  const f = S.filters;
-  f.q = EL['flt-search'].value.trim().toLowerCase();
-  MULTI_FILTERS.forEach(m => {
-    f[m.field === 'type_id' ? 'type' : m.field] = multiValues(EL[m.el]);
-  });
-  f.score      = Number(EL['flt-score'].value) || 0;
-  f.surfaceMin = EL['flt-surface-min'].value === '' ? null : Number(EL['flt-surface-min'].value);
-  f.surfaceMax = EL['flt-surface-max'].value === '' ? null : Number(EL['flt-surface-max'].value);
-  f.fav        = EL['flt-fav'].checked;
-  f.viewport   = EL['flt-viewport'].checked;
-  f.sort       = EL['flt-sort'].value;
-  EL['flt-score-val'].textContent = f.score ? fmtNum(f.score, 1) : '0';
-  lsSet(LS_FILTERS, f);
-  updateFilterBadge();
-}
-
-function multiValues(sel) {
-  return sel ? Array.from(sel.selectedOptions).map(o => o.value) : [];
-}
-
-/* ── 9.2 Écriture S.filters → contrôles ───────────────────────────── */
-
-function writeFilters() {
-  const f = S.filters;
-  EL['flt-search'].value = f.q || '';
-  MULTI_FILTERS.forEach(m => {
-    const key = m.field === 'type_id' ? 'type' : m.field;
-    const want = new Set(f[key] || []);
-    Array.from(EL[m.el].options).forEach(o => { o.selected = want.has(o.value); });
-  });
-  EL['flt-score'].value = f.score || 0;
-  EL['flt-score-val'].textContent = f.score ? fmtNum(f.score, 1) : '0';
-  EL['flt-surface-min'].value = f.surfaceMin ?? '';
-  EL['flt-surface-max'].value = f.surfaceMax ?? '';
-  EL['flt-fav'].checked      = !!f.fav;
-  EL['flt-viewport'].checked = !!f.viewport;
-  EL['flt-sort'].value       = f.sort || 'recent';
-  updateFilterBadge();
-}
-
-function updateFilterBadge() {
-  const f = S.filters;
-  let n = 0;
-  if (f.q) n++;
-  ['type', 'status', 'relation', 'priority', 'legal_form', 'governance', 'business_model']
-    .forEach(k => { if ((f[k] || []).length) n++; });
-  if (f.score > 0) n++;
-  if (f.surfaceMin != null) n++;
-  if (f.surfaceMax != null) n++;
-  if (f.fav) n++;
-  if (f.viewport) n++;
-  const b = EL['ui-filters-badge'];
-  b.textContent = n ? String(n) : '';
-  b.classList.toggle('on', n > 0);
-}
-
-function resetFilters() {
-  S.filters = defaultFilters();
-  writeFilters();
-  lsSet(LS_FILTERS, S.filters);
-  renderAll();
-  info('Filtres réinitialisés.');
-}
-
-/* ── 9.3 Application ──────────────────────────────────────────────── */
-
-/* Champs balayés par la recherche plein texte. */
-const SEARCH_KEYS = ['name', 'city', 'address', 'description', 'owner',
-  'contact_name', 'email', 'next_action', 'takeaway', 'strengths',
-  'weaknesses', 'transport', 'funders'];
-
-function matchSearch(p, q) {
-  if (!q) return true;
-  for (const k of SEARCH_KEYS) {
-    if (p[k] && String(p[k]).toLowerCase().includes(q)) return true;
-  }
-  for (const k of ['tags', 'activities', 'features', 'revenue_sources']) {
-    if (Array.isArray(p[k]) && p[k].some(v => String(v).toLowerCase().includes(q))) return true;
-  }
-  return false;
-}
-
-function inViewport(p) {
-  if (!S.map || p.lat == null || p.lng == null) return false;
-  return S.map.getBounds().contains([p.lat, p.lng]);
-}
-
-function applyFilters() {
-  const f = S.filters;
-  let out = S.places.filter(p => {
-    if (!matchSearch(p, f.q)) return false;
-    if (f.type.length      && !f.type.includes(p.type_id)) return false;
-    if (f.status.length    && !f.status.includes(p.status)) return false;
-    if (f.relation.length  && !f.relation.includes(p.relation)) return false;
-    if (f.priority.length  && !f.priority.includes(p.priority)) return false;
-    if (f.legal_form.length && !f.legal_form.includes(p.legal_form)) return false;
-    if (f.governance.length && !f.governance.includes(p.governance)) return false;
-    if (f.business_model.length && !f.business_model.includes(p.business_model)) return false;
-    if (f.score > 0 && (p.score == null || p.score < f.score)) return false;
-    if (f.surfaceMin != null && (p.surface_total == null || p.surface_total < f.surfaceMin)) return false;
-    if (f.surfaceMax != null && (p.surface_total == null || p.surface_total > f.surfaceMax)) return false;
-    if (f.fav && !p.favorite) return false;
-    if (f.viewport && !inViewport(p)) return false;
-    return true;
-  });
-  const cmp = SORTS[f.sort] || SORTS.recent;
-  return out.sort(cmp);
-}
-
-/* ── 9.4 Presets de filtres (boutons rapides) ─────────────────────── */
-
-function presetFilter(kind) {
-  S.filters = defaultFilters();
-  if (kind === 'recent') S.filters.sort = 'recent';
-  if (kind === 'top')  { S.filters.sort = 'score'; S.filters.score = 3.5; }
-  if (kind === 'todo') { S.filters.status = ['todo', 'contacte']; S.filters.sort = 'recent'; }
-  if (kind === 'fav')  { S.filters.fav = true; S.filters.sort = 'score'; }
-  writeFilters();
-  lsSet(LS_FILTERS, S.filters);
-  renderAll();
-}
-
-/* Remplit les <select> de filtres. Rappelé après édition des types. */
-function buildFilterOptions() {
-  MULTI_FILTERS.forEach(m => {
-    const src = m.src === 'types' ? S.types : ENUMS[m.src];
-    fillSelect(EL[m.el], src, null, true);
-  });
-}
-
-/* ═══ 10 · CARTE ══════════════════════════════════════════════════════ */
-
-/* ── 10.1 Initialisation ──────────────────────────────────────────── */
-
-function initMap() {
-  if (S.map) return;
-  S.map = L.map('ui-map', {
-    zoomControl: true,
-    preferCanvas: true,
-    worldCopyJump: false
-  }).setView([MAP_START.lat, MAP_START.lng], MAP_START.zoom);
-
-  L.tileLayer(MAP_TILES, { attribution: MAP_ATTRIB, maxZoom: 19 })
-    .addTo(S.map);
-
-  S.markers = L.layerGroup().addTo(S.map);
-
-  /* Le filtre « dans la vue » doit se réévaluer au déplacement. */
-  S.map.on('moveend zoomend', () => {
-    if (S.filters.viewport) renderAll();
-  });
-
-  /* Mode pointage : le prochain clic crée un lieu à cet endroit. */
-  S.map.on('click', onMapClick);
-}
-
-/* Leaflet mesure mal son conteneur s'il était caché à l'init. */
-function refreshMapSize() {
-  if (S.map) setTimeout(() => S.map.invalidateSize(), 60);
-}
-
-/* ── 10.2 Marqueurs ───────────────────────────────────────────────── */
-
-function typeOf(place) {
-  return S.types.find(t => t.id === place.type_id) || null;
-}
-
-function markerIcon(place) {
-  const t = typeOf(place);
-  const color = t ? t.color : '#7c8496';
-  const emoji = t ? t.emoji : '📍';
-  const star  = place.favorite ? '<b class="mk-star">★</b>' : '';
-  const sc    = place.score != null
-    ? '<i class="mk-score">' + fmtNum(place.score, 1) + '</i>' : '';
-  return L.divIcon({
-    className: 'mk-wrap',
-    html: '<span class="mk" style="--mk:' + color + '">'
-        + '<em>' + emoji + '</em>' + star + sc + '</span>',
-    iconSize: [34, 34],
-    iconAnchor: [17, 34],
-    popupAnchor: [0, -32]
-  });
-}
-
-function popupHtml(p) {
-  const t = typeOf(p);
-  const bits = [];
-  bits.push('<strong>' + esc(p.name) + '</strong>');
-  if (t) bits.push('<span class="pop-type" style="--mk:' + t.color + '">'
-    + t.emoji + ' ' + esc(t.label) + '</span>');
-  if (p.city) bits.push('<span class="pop-city">' + esc(p.city) + '</span>');
-  const meta = [];
-  if (p.surface_total != null) meta.push(fmtNum(p.surface_total) + ' m²');
-  if (p.rent_monthly != null)  meta.push(fmtEur(p.rent_monthly) + '/mois');
-  if (p.capacity != null)      meta.push(fmtNum(p.capacity) + ' pers.');
-  if (meta.length) bits.push('<span class="pop-meta">' + meta.join(' · ') + '</span>');
-  if (p.score != null) bits.push('<span class="pop-score">'
-    + stars(p.score) + ' ' + fmtNum(p.score, 2) + '</span>');
-  bits.push('<button class="pop-btn" data-open="' + p.id + '">Ouvrir la fiche →</button>');
-  return '<div class="pop">' + bits.join('') + '</div>';
-}
-
-function renderMap(rows) {
-  if (!S.map) return;
-  S.markers.clearLayers();
-  const located = rows.filter(p => p.lat != null && p.lng != null);
-
-  located.forEach(p => {
-    const m = L.marker([p.lat, p.lng], {
-      icon: markerIcon(p),
-      title: p.name,
-      riseOnHover: true
-    });
-    m.bindPopup(popupHtml(p), { closeButton: true, minWidth: 210 });
-    m.on('popupopen', e => {
-      const btn = e.popup.getElement().querySelector('[data-open]');
-      if (btn) btn.addEventListener('click', () => {
-        S.map.closePopup();
-        openSheet(p.id);
-      });
-    });
-    S.markers.addLayer(m);
-  });
-
-  const noGeo = rows.length - located.length;
-  EL['ui-map-nogeo'].textContent = noGeo
-    ? noGeo + ' lieu(x) sans coordonnées' : '';
-  EL['ui-map-nogeo'].classList.toggle('on', noGeo > 0);
-}
-
-/* Recadre sur les résultats courants. */
-function fitToResults() {
-  const rows = applyFilters().filter(p => p.lat != null && p.lng != null);
-  if (!rows.length) { info('Aucun lieu géolocalisé à afficher.'); return; }
-  const b = L.latLngBounds(rows.map(p => [p.lat, p.lng]));
-  S.map.fitBounds(b, { padding: [40, 40], maxZoom: 14 });
-}
-
-function flyTo(place) {
-  if (place.lat == null) { info('Ce lieu n\'a pas de coordonnées.'); return; }
-  setView('map');
-  S.map.flyTo([place.lat, place.lng], 15, { duration: 0.7 });
-}
-
-/* ── 10.3 Mode pointage ───────────────────────────────────────────── */
-
-function togglePickMode(on) {
-  S.pickMode = on == null ? !S.pickMode : on;
-  EL['ui-map-hint'].classList.toggle('on', S.pickMode);
-  EL['btn-map-pick'].classList.toggle('on', S.pickMode);
-  const c = EL['ui-map'];
-  if (c) c.style.cursor = S.pickMode ? 'crosshair' : '';
-  if (S.pickMode) setView('map');
-}
-
-function onMapClick(e) {
-  if (!S.pickMode) return;
-  togglePickMode(false);
-  openSheet(null, { lat: round6(e.latlng.lat), lng: round6(e.latlng.lng) });
-}
-
-function round6(n) { return Math.round(n * 1e6) / 1e6; }
-
-/* ── 10.4 Géocodage (Nominatim) ───────────────────────────────────── */
-
-/* Nominatim impose 1 req/s et un usage raisonnable : on ne l'appelle
-   qu'à la demande explicite, jamais en boucle sur un import. */
-async function geocode(query) {
-  const url = GEOCODE_URL + '?format=json&limit=1&q=' + encodeURIComponent(query);
-  try {
-    const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json();
-    if (!j.length) return null;
-    return { lat: round6(Number(j[0].lat)), lng: round6(Number(j[0].lon)) };
-  } catch (ex) {
-    err('Géocodage indisponible : ' + ex.message);
-    return null;
-  }
-}
-
-async function geocodeFromSheet() {
-  const addr = (fieldValue('address') || '').trim();
-  const city = (fieldValue('city') || '').trim();
-  const q = [addr, city, 'France'].filter(Boolean).join(', ');
-  if (!addr && !city) { err('Renseigne au moins une ville ou une adresse.'); return; }
-
-  EL['btn-sheet-geocode'].disabled = true;
-  EL['btn-sheet-geocode'].textContent = '⏳ Recherche…';
-  const hit = await geocode(q);
-  EL['btn-sheet-geocode'].disabled = false;
-  EL['btn-sheet-geocode'].textContent = '📍 Géocoder';
-
-  if (!hit) { err('Adresse introuvable. Saisis les coordonnées à la main.'); return; }
-  setFieldValue('lat', hit.lat);
-  setFieldValue('lng', hit.lng);
-  ok('Coordonnées trouvées : ' + hit.lat + ', ' + hit.lng);
-}
-
-
-/* ═══ 11 · LISTE (panneau latéral) ════════════════════════════════════ */
-
-function renderList(rows) {
-  const box = EL['ui-list'];
-  box.innerHTML = '';
-
-  if (!rows.length) {
-    box.appendChild(EL['ui-list-empty'].content.cloneNode(true));
-    return;
-  }
-
-  const frag = document.createDocumentFragment();
-  rows.forEach(p => frag.appendChild(listCard(p)));
-  box.appendChild(frag);
-}
-
-function listCard(p) {
-  const t = typeOf(p);
-  const el = document.createElement('article');
-  el.className = 'card' + (S.currentId === p.id ? ' on' : '');
-  el.dataset.id = p.id;
-
-  const meta = [];
-  if (p.city) meta.push(esc(p.city));
-  if (p.surface_total != null) meta.push(fmtNum(p.surface_total) + ' m²');
-  if (p.rent_monthly != null) meta.push(fmtEur(p.rent_monthly) + '/m');
-
-  el.innerHTML =
-    '<div class="card-top">'
-  +   '<span class="card-dot" style="--mk:' + (t ? t.color : '#7c8496') + '">'
-  +     (t ? t.emoji : '📍') + '</span>'
-  +   '<h4 class="card-name">' + esc(p.name) + '</h4>'
-  +   '<button class="card-fav' + (p.favorite ? ' on' : '') + '" '
-  +     'data-fav="' + p.id + '" title="Favori">★</button>'
-  +   '</div>'
-  + (meta.length ? '<p class="card-meta">' + meta.join(' · ') + '</p>' : '')
-  + '<div class="card-foot">'
-  +   '<span class="tag tag-status" data-v="' + esc(p.status || '') + '">'
-  +     esc(labelOf('status', p.status) || '—') + '</span>'
-  +   (p.priority ? '<span class="tag tag-prio" data-v="' + esc(p.priority) + '">'
-  +     esc(labelOf('priority', p.priority)) + '</span>' : '')
-  +   (p.score != null ? '<span class="card-score">' + stars(p.score)
-  +     ' <b>' + fmtNum(p.score, 1) + '</b></span>' : '')
-  +   '</div>';
-
-  el.addEventListener('click', ev => {
-    if (ev.target.closest('[data-fav]')) return;
-    openSheet(p.id);
-  });
-  const fav = el.querySelector('[data-fav]');
-  fav.addEventListener('click', ev => { ev.stopPropagation(); toggleFavorite(p); });
-  return el;
-}
-
-/* Fait défiler la liste jusqu'à la carte active. */
-function scrollListTo(id) {
-  const node = EL['ui-list'].querySelector('[data-id="' + id + '"]');
-  if (node) node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-}
-
-
-/* ═══ 12 · TABLEAU ════════════════════════════════════════════════════ */
-
-/* ── 12.1 Colonnes ────────────────────────────────────────────────── */
-
-function visibleColumns() {
-  return COLUMNS.filter(c => S.columns[c.key] !== false);
-}
-
-function renderColumnsMenu() {
-  const box = EL['ui-columns-menu'];
-  box.innerHTML = '';
-  COLUMNS.forEach(c => {
-    const lab = document.createElement('label');
-    lab.className = 'chk sm';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = S.columns[c.key] !== false;
-    cb.addEventListener('change', () => {
-      S.columns[c.key] = cb.checked;
-      lsSet(LS_COLUMNS, S.columns);
-      renderTable(applyFilters());
-    });
-    lab.appendChild(cb);
-    lab.appendChild(document.createTextNode(c.label));
-    box.appendChild(lab);
-  });
-}
-
-/* ── 12.2 Rendu ───────────────────────────────────────────────────── */
-
-function renderTable(rows) {
-  const cols = visibleColumns();
-
-  /* En-tête */
-  const thead = EL['ui-table-head'];
-  thead.innerHTML = '';
-  const tr = document.createElement('tr');
-  cols.forEach(c => {
-    const th = document.createElement('th');
-    th.textContent = c.label;
-    th.className = 'th-' + (c.align || 'left');
-    if (c.sort) {
-      th.classList.add('sortable');
-      if (S.filters.sort === c.sort) th.classList.add('on');
-      th.addEventListener('click', () => {
-        S.filters.sort = c.sort;
-        EL['flt-sort'].value = c.sort;
-        lsSet(LS_FILTERS, S.filters);
-        renderAll();
-      });
-    }
-    tr.appendChild(th);
-  });
-  thead.appendChild(tr);
-
-  /* Corps */
-  const tbody = EL['ui-table-body'];
-  tbody.innerHTML = '';
-  EL['ui-table-empty'].classList.toggle('on', rows.length === 0);
-  if (!rows.length) return;
-
-  const frag = document.createDocumentFragment();
-  rows.forEach(p => {
-    const row = document.createElement('tr');
-    row.dataset.id = p.id;
-    if (S.currentId === p.id) row.className = 'on';
-    cols.forEach(c => {
-      const td = document.createElement('td');
-      td.className = 'td-' + (c.align || 'left');
-      const v = cellValue(p, c);
-      if (v instanceof Node) td.appendChild(v); else td.innerHTML = v;
-      row.appendChild(td);
-    });
-    row.addEventListener('click', ev => {
-      if (ev.target.closest('[data-fav]')) return;
-      openSheet(p.id);
-    });
-    const fav = row.querySelector('[data-fav]');
-    if (fav) fav.addEventListener('click', ev => {
-      ev.stopPropagation(); toggleFavorite(p);
-    });
-    frag.appendChild(row);
-  });
-  tbody.appendChild(frag);
-  EL['ui-table-count'].textContent = rows.length + ' ligne(s)';
-}
-
-/* Formatage d'une cellule selon le type déclaré dans COLUMNS. */
-function cellValue(p, c) {
-  const raw = p[c.key];
-  switch (c.t) {
-    case 'fav':
-      return '<button class="card-fav sm' + (p.favorite ? ' on' : '') + '" '
-           + 'data-fav="' + p.id + '" title="Favori">★</button>';
-    case 'type': {
-      const t = typeOf(p);
-      return t
-        ? '<span class="cell-type" style="--mk:' + t.color + '">'
-          + t.emoji + ' ' + esc(t.label) + '</span>'
-        : '<span class="dim">—</span>';
-    }
-    case 'enum':
-      return raw
-        ? '<span class="tag tag-' + c.tag + '" data-v="' + esc(raw) + '">'
-          + esc(labelOf(c.src, raw)) + '</span>'
-        : '<span class="dim">—</span>';
-    case 'score':
-      return raw != null
-        ? '<b class="cell-score" data-lvl="' + scoreLevel(raw) + '">'
-          + fmtNum(raw, 2) + '</b>'
-        : '<span class="dim">—</span>';
-    case 'num':
-      return raw != null ? fmtNum(raw) : '<span class="dim">—</span>';
-    case 'eur':
-      return raw != null ? fmtEur(raw) : '<span class="dim">—</span>';
-    case 'date':
-      return raw ? fmtDate(raw) : '<span class="dim">—</span>';
-    case 'arr':
-      return Array.isArray(raw) && raw.length
-        ? raw.slice(0, 3).map(x => '<span class="chip xs">' + esc(x) + '</span>').join('')
-          + (raw.length > 3 ? '<span class="dim"> +' + (raw.length - 3) + '</span>' : '')
-        : '<span class="dim">—</span>';
-    case 'bool':
-      return raw ? '✓' : '<span class="dim">—</span>';
-    case 'geo':
-      return (p.lat != null)
-        ? '<button class="lnk" data-geo="' + p.id + '">📍</button>'
-        : '<span class="dim">—</span>';
-    default: {
-      const s = raw == null || raw === '' ? null : String(raw);
-      if (!s) return '<span class="dim">—</span>';
-      const short = s.length > 60 ? s.slice(0, 60) + '…' : s;
-      return '<span title="' + esc(s) + '">' + esc(short) + '</span>';
-    }
-  }
-}
-
-function scoreLevel(v) {
-  if (v >= 4) return 'hi';
-  if (v >= 3) return 'mid';
-  if (v >= 2) return 'low';
-  return 'bad';
-}
-
-
-/* ═══ 13 · DASHBOARD ══════════════════════════════════════════════════ */
-
-function renderDashboard(rows) {
-  renderKpis(rows);
-  renderBreakdown('dash-by-type',     groupByType(rows));
-  renderBreakdown('dash-by-status',   groupByEnum(rows, 'status'));
-  renderBreakdown('dash-by-priority', groupByEnum(rows, 'priority'));
-  renderBreakdown('dash-by-relation', groupByEnum(rows, 'relation'));
-  renderTopList(rows);
-  renderCriteriaAvg(rows);
-  renderGaps(rows);
-}
-
-/* ── 13.1 KPIs ────────────────────────────────────────────────────── */
-
-function renderKpis(rows) {
-  const scored  = rows.filter(p => p.score != null);
-  const located = rows.filter(p => p.lat != null);
-  const avg = scored.length
-    ? scored.reduce((a, p) => a + p.score, 0) / scored.length : null;
-
-  const surf = rows.filter(p => p.surface_total != null);
-  const rent = rows.filter(p => p.rent_monthly != null);
-
-  kpi('dash-kpi-total',   rows.length,
-      S.places.length !== rows.length ? 'sur ' + S.places.length : 'lieux');
-  kpi('dash-kpi-score',   avg != null ? fmtNum(avg, 2) : '—',
-      scored.length + ' noté(s)');
-  kpi('dash-kpi-fav',     rows.filter(p => p.favorite).length, 'favoris');
-  kpi('dash-kpi-geo',     located.length,
-      pct(located.length, rows.length) + ' géolocalisés');
-  kpi('dash-kpi-surface',
-      surf.length ? fmtNum(median(surf.map(p => p.surface_total))) + ' m²' : '—',
-      'surface médiane');
-  kpi('dash-kpi-rent',
-      rent.length ? fmtEur(median(rent.map(p => p.rent_monthly))) : '—',
-      'loyer médian');
-}
-
-function kpi(id, value, sub) {
-  const n = EL[id];
-  if (!n) return;
-  n.querySelector('.kpi-val').textContent = value;
-  const s = n.querySelector('.kpi-sub');
-  if (s) s.textContent = sub || '';
-}
-
-/* ── 13.2 Répartitions ────────────────────────────────────────────── */
-
-function groupByType(rows) {
-  const map = new Map();
-  rows.forEach(p => {
-    const t = typeOf(p);
-    const k = t ? t.id : '__none';
-    if (!map.has(k)) map.set(k, {
-      label: t ? t.emoji + ' ' + t.label : '📍 Sans type',
-      color: t ? t.color : '#7c8496', n: 0
-    });
-    map.get(k).n++;
-  });
-  return [...map.values()].sort((a, b) => b.n - a.n);
-}
-
-function groupByEnum(rows, src) {
-  const map = new Map();
-  rows.forEach(p => {
-    const k = p[src] || '__none';
-    if (!map.has(k)) map.set(k, {
-      label: p[src] ? labelOf(src, p[src]) : 'Non renseigné',
-      color: ENUM_COLORS[src] && ENUM_COLORS[src][k] || '#7c8496', n: 0
-    });
-    map.get(k).n++;
-  });
-  return [...map.values()].sort((a, b) => b.n - a.n);
-}
-
-/* Barres horizontales : lisible, pas de dépendance graphique. */
-function renderBreakdown(id, groups) {
-  const box = EL[id];
-  if (!box) return;
-  box.innerHTML = '';
-  if (!groups.length) { box.innerHTML = '<p class="dim sm">Aucune donnée.</p>'; return; }
-  const max = Math.max(...groups.map(g => g.n));
-  groups.forEach(g => {
-    const row = document.createElement('div');
-    row.className = 'bar-row';
-    row.innerHTML =
-      '<span class="bar-lab">' + esc(g.label) + '</span>'
-    + '<span class="bar-track"><i class="bar-fill" style="--mk:' + g.color
-    + ';width:' + Math.round(g.n / max * 100) + '%"></i></span>'
-    + '<b class="bar-n">' + g.n + '</b>';
-    box.appendChild(row);
-  });
-}
-
-/* ── 13.3 Top 10 ──────────────────────────────────────────────────── */
-
-function renderTopList(rows) {
-  const box = EL['dash-top'];
-  box.innerHTML = '';
-  const top = rows.filter(p => p.score != null)
-    .sort((a, b) => b.score - a.score).slice(0, 10);
-  if (!top.length) { box.innerHTML = '<p class="dim sm">Aucun lieu noté.</p>'; return; }
-
-  top.forEach((p, i) => {
-    const t = typeOf(p);
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = 'top-row';
-    row.innerHTML =
-      '<span class="top-rank">' + (i + 1) + '</span>'
-    + '<span class="top-dot" style="--mk:' + (t ? t.color : '#7c8496') + '">'
-    +   (t ? t.emoji : '📍') + '</span>'
-    + '<span class="top-name">' + esc(p.name)
-    +   (p.city ? '<em> · ' + esc(p.city) + '</em>' : '') + '</span>'
-    + '<b class="top-score" data-lvl="' + scoreLevel(p.score) + '">'
-    +   fmtNum(p.score, 2) + '</b>';
-    row.addEventListener('click', () => openSheet(p.id));
-    box.appendChild(row);
-  });
-}
-
-/* ── 13.4 Moyenne par critère ─────────────────────────────────────── */
-
-function renderCriteriaAvg(rows) {
-  const box = EL['dash-criteria'];
-  box.innerHTML = '';
-  if (!S.criteria.length) {
-    box.innerHTML = '<p class="dim sm">Aucun critère défini.</p>'; return;
-  }
-  S.criteria.forEach(c => {
-    const vals = rows.map(p => p.ratings && p.ratings[c.key])
-      .filter(v => v != null);
-    const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-    const row = document.createElement('div');
-    row.className = 'bar-row';
-    row.innerHTML =
-      '<span class="bar-lab">' + esc(c.label)
-    +   '<em class="bar-w">×' + fmtNum(c.weight, 1) + '</em></span>'
-    + '<span class="bar-track"><i class="bar-fill" style="--mk:'
-    +   (avg == null ? '#3a4152' : scoreColor(avg))
-    +   ';width:' + (avg == null ? 0 : Math.round(avg / 5 * 100)) + '%"></i></span>'
-    + '<b class="bar-n">' + (avg == null ? '—' : fmtNum(avg, 2))
-    +   '<em class="dim"> (' + vals.length + ')</em></b>';
-    box.appendChild(row);
-  });
-}
-
-function scoreColor(v) {
-  if (v >= 4) return '#3ecf8e';
-  if (v >= 3) return '#8ecf3e';
-  if (v >= 2) return '#e0b03c';
-  return '#e05c5c';
-}
-
-/* ── 13.5 Données manquantes ──────────────────────────────────────── */
-
-/* Signale où l'effort de saisie manque — utile en prospection réelle. */
-const GAP_CHECKS = [
-  { label: 'Sans coordonnées',      test: p => p.lat == null },
-  { label: 'Sans type',             test: p => !p.type_id },
-  { label: 'Sans surface',          test: p => p.surface_total == null },
-  { label: 'Sans loyer',            test: p => p.rent_monthly == null },
-  { label: 'Sans contact',          test: p => !p.contact_name && !p.email && !p.phone },
-  { label: 'Non noté',              test: p => p.score == null },
-  { label: 'Notation incomplète',   test: p => {
-      const c = scoreCoverage(p.ratings);
-      return c.done > 0 && c.done < c.total; } },
-  { label: 'Sans prochaine action', test: p => !p.next_action }
-];
-
-function renderGaps(rows) {
-  const box = EL['dash-gaps'];
-  box.innerHTML = '';
-  if (!rows.length) { box.innerHTML = '<p class="dim sm">Aucune donnée.</p>'; return; }
-  GAP_CHECKS.forEach(g => {
-    const n = rows.filter(g.test).length;
-    const row = document.createElement('div');
-    row.className = 'gap-row' + (n === 0 ? ' ok' : '');
-    row.innerHTML =
-      '<span class="gap-lab">' + esc(g.label) + '</span>'
-    + '<b class="gap-n">' + (n === 0 ? '✓' : n) + '</b>'
-    + '<span class="gap-pct dim">' + (n === 0 ? '' : pct(n, rows.length)) + '</span>';
-    box.appendChild(row);
-  });
-}
-
-/* ═══ 14 · FICHE ══════════════════════════════════════════════════════ */
-
-/* ── 14.1 Génération des champs depuis FIELDS ──────────────────────── */
-
-/* ~70 lignes assumées : linéaire, un bloc par type de champ.
-   Découper produirait des helpers à 6 arguments — moins lisible. */
-function buildSheet() {
-  const box = EL['sheet-fields'];
-  box.innerHTML = '';
-
-  SHEET_GROUPS.forEach(grp => {
-    const fs = document.createElement('fieldset');
-    fs.className = 'fs';
-    fs.innerHTML = '<legend class="fs-leg">' + esc(grp.label) + '</legend>';
-    const grid = document.createElement('div');
-    grid.className = 'fs-grid';
-
-    grp.fields.forEach(key => {
-      const d = FIELDS[key];
-      if (!d) return;
-
-      const wrap = document.createElement('label');
-      wrap.className = 'fld' + (d.wide ? ' wide' : '');
-      wrap.innerHTML = '<span class="fld-lab">' + esc(d.label)
-        + (d.unit ? '<em class="fld-unit">' + esc(d.unit) + '</em>' : '') + '</span>';
-
-      let input;
-      switch (d.t) {
-        case 'textarea':
-          input = document.createElement('textarea');
-          input.rows = d.rows || 3;
-          break;
-
-        case 'select':
-          input = document.createElement('select');
-          fillSelect(input, d.src === 'types' ? S.types : ENUMS[d.src], '—', false);
-          break;
-
-        case 'tags':
-          input = document.createElement('input');
-          input.type = 'text';
-          input.placeholder = d.hint || 'séparés par des virgules';
-          input.dataset.tags = '1';
-          break;
-
-        case 'check':
-          input = document.createElement('input');
-          input.type = 'checkbox';
-          wrap.classList.add('fld-chk');
-          break;
-
-        case 'date':
-          input = document.createElement('input');
-          input.type = 'date';
-          break;
-
-        case 'int':
-        case 'num':
-          input = document.createElement('input');
-          input.type = 'number';
-          if (d.min != null) input.min = d.min;
-          if (d.max != null) input.max = d.max;
-          input.step = d.t === 'int' ? '1' : (d.step || 'any');
-          break;
-
-        default:
-          input = document.createElement('input');
-          input.type = d.t === 'email' ? 'email' : d.t === 'url' ? 'url' : 'text';
-          if (d.max) input.maxLength = d.max;
-          if (d.hint) input.placeholder = d.hint;
-      }
-
-      input.id = 'f-' + key;
-      input.className = 'fld-in';
-      input.dataset.field = key;
-      wrap.appendChild(input);
-      if (d.help) wrap.insertAdjacentHTML('beforeend',
-        '<em class="fld-help">' + esc(d.help) + '</em>');
-      grid.appendChild(wrap);
-    });
-
-    fs.appendChild(grid);
-    box.appendChild(fs);
-  });
-
-  buildRatings();
-  indexSheet();
-}
-
-/* Bloc notations : un slider 0–5 par critère + score live. */
-function buildRatings() {
-  const box = EL['sheet-ratings'];
-  box.innerHTML = '';
-  if (!S.criteria.length) {
-    box.innerHTML = '<p class="dim sm">Aucun critère. Ajoute-en dans les réglages.</p>';
-    return;
-  }
-  S.criteria.forEach(c => {
-    const row = document.createElement('div');
-    row.className = 'rt-row';
-    row.innerHTML =
-      '<span class="rt-lab">' + esc(c.label)
-    +   '<em class="rt-w">×' + fmtNum(c.weight, 1) + '</em></span>'
-    + '<input type="range" id="r-' + esc(c.key) + '" class="rt-in" '
-    +   'min="0" max="5" step="0.5" value="0" data-crit="' + esc(c.key) + '">'
-    + '<b class="rt-val" data-for="' + esc(c.key) + '">—</b>'
-    + '<button type="button" class="rt-clr" data-clr="' + esc(c.key) + '" '
-    +   'title="Effacer cette note">×</button>';
-    box.appendChild(row);
-  });
-
-  box.addEventListener('input', ev => {
-    const t = ev.target;
-    if (!t.dataset.crit) return;
-    t.dataset.set = '1';
-    refreshRatings();
-  });
-  box.addEventListener('click', ev => {
-    const btn = ev.target.closest('[data-clr]');
-    if (!btn) return;
-    const inp = EL['r-' + btn.dataset.clr];
-    inp.value = 0;
-    delete inp.dataset.set;
-    refreshRatings();
-  });
-}
-
-/* Réindexe EL après génération — les f-* n'existent pas au boot. */
-function indexSheet() {
-  EL['sheet-fields'].querySelectorAll('[id]').forEach(n => { EL[n.id] = n; });
-  EL['sheet-ratings'].querySelectorAll('[id]').forEach(n => { EL[n.id] = n; });
-}
-
-/* ── 14.2 Lecture / écriture des valeurs ──────────────────────────── */
-
-function fieldValue(key) {
-  const n = EL['f-' + key];
-  if (!n) return null;
-  const d = FIELDS[key];
-  if (d.t === 'check') return n.checked;
-  if (d.t === 'tags') return splitTags(n.value);
-  if (d.t === 'int' || d.t === 'num') return n.value === '' ? null : Number(n.value);
-  return n.value === '' ? null : n.value;
-}
-
-function setFieldValue(key, v) {
-  const n = EL['f-' + key];
-  if (!n) return;
-  const d = FIELDS[key];
-  if (d.t === 'check') { n.checked = !!v; return; }
-  if (d.t === 'tags') { n.value = Array.isArray(v) ? v.join(', ') : ''; return; }
-  n.value = v == null ? '' : v;
-}
-
-function splitTags(s) {
-  return String(s || '').split(',').map(x => x.trim()).filter(Boolean).slice(0, 60);
-}
-
-function readRatings() {
-  const out = {};
-  S.criteria.forEach(c => {
-    const n = EL['r-' + c.key];
-    if (n && n.dataset.set) out[c.key] = Number(n.value);
-  });
-  return out;
-}
-
-function writeRatings(ratings) {
-  S.criteria.forEach(c => {
-    const n = EL['r-' + c.key];
-    if (!n) return;
-    const v = ratings && ratings[c.key];
-    if (v == null) { n.value = 0; delete n.dataset.set; }
-    else { n.value = v; n.dataset.set = '1'; }
-  });
-  refreshRatings();
-}
-
-/* Met à jour les libellés + le score prévisionnel affiché en tête. */
-function refreshRatings() {
-  const r = readRatings();
-  S.criteria.forEach(c => {
-    const lab = EL['sheet-ratings'].querySelector('[data-for="' + c.key + '"]');
-    if (lab) lab.textContent = r[c.key] == null ? '—' : fmtNum(r[c.key], 1);
-  });
-  const sc = computeScore(r);
-  const cov = scoreCoverage(r);
-  EL['sheet-score'].textContent = sc == null ? '—' : fmtNum(sc, 2);
-  EL['sheet-score'].dataset.lvl = sc == null ? '' : scoreLevel(sc);
-  EL['sheet-score-cov'].textContent = cov.done + '/' + cov.total + ' critères';
-}
-
-/* ── 14.3 Ouverture / fermeture ────────────────────────────────────── */
-
-function openSheet(id, seed) {
-  const p = id ? S.places.find(x => x.id === id) : null;
-  S.currentId = p ? p.id : null;
-  S.sheetDirty = false;
-
-  /* Reset complet avant remplissage : évite les valeurs fantômes. */
-  Object.keys(FIELDS).forEach(k => setFieldValue(k, null));
-  writeRatings(null);
-
-  if (p) {
-    Object.keys(FIELDS).forEach(k => setFieldValue(k, p[k]));
-    writeRatings(p.ratings);
-    EL['sheet-title'].textContent = p.name;
-    EL['sheet-sub'].textContent = [labelOf('status', p.status),
-      p.city, fmtDate(p.updated_at)].filter(Boolean).join(' · ');
-    EL['btn-sheet-del'].hidden = false;
-    EL['btn-sheet-fly'].hidden = p.lat == null;
-    EL['sheet-fav'].classList.toggle('on', !!p.favorite);
-  } else {
-    if (seed) { setFieldValue('lat', seed.lat); setFieldValue('lng', seed.lng); }
-    setFieldValue('status', 'todo');
-    setFieldValue('relation', 'reperage');
-    setFieldValue('priority', 'mid');
-    EL['sheet-title'].textContent = 'Nouveau lieu';
-    EL['sheet-sub'].textContent = seed ? 'Position pointée sur la carte' : '';
-    EL['btn-sheet-del'].hidden = true;
-    EL['btn-sheet-fly'].hidden = true;
-    EL['sheet-fav'].classList.remove('on');
-  }
-
-  EL['ui-sheet'].classList.add('on');
-  EL['ui-sheet'].setAttribute('aria-hidden', 'false');
-  setTimeout(() => EL['f-name'].focus(), 80);
-  renderAll();
-  if (p) scrollListTo(p.id);
-}
-
-function closeSheet(force) {
-  if (S.sheetDirty && !force) {
-    if (!confirm('Des modifications ne sont pas enregistrées. Fermer quand même ?')) return;
-  }
-  EL['ui-sheet'].classList.remove('on');
-  EL['ui-sheet'].setAttribute('aria-hidden', 'true');
-  S.currentId = null;
-  S.sheetDirty = false;
-  renderAll();
-}
-
-/* ── 14.4 Enregistrement ──────────────────────────────────────────── */
-
-async function saveSheet() {
-  const raw = {};
-  Object.keys(FIELDS).forEach(k => { raw[k] = fieldValue(k); });
-  raw.ratings = readRatings();
-  raw.favorite = EL['sheet-fav'].classList.contains('on');
-
-  if (!sTxt(raw.name, 200)) {
-    err('Le nom est obligatoire.');
-    EL['f-name'].focus();
-    return;
-  }
-
-  const clean = sanitizePlace(raw);
-  clean.score = computeScore(clean.ratings);
-
-  EL['btn-sheet-save'].disabled = true;
-  const saved = S.currentId
-    ? await updatePlace(S.currentId, clean)
-    : await insertPlace(clean);
-  EL['btn-sheet-save'].disabled = false;
-
-  if (!saved) return;
-  S.sheetDirty = false;
-  ok(S.currentId ? 'Fiche mise à jour.' : 'Lieu créé.');
-  S.currentId = saved.id;
-  EL['sheet-title'].textContent = saved.name;
-  EL['btn-sheet-del'].hidden = false;
-  EL['btn-sheet-fly'].hidden = saved.lat == null;
-  renderAll();
-}
-
-async function deleteSheet() {
-  if (!S.currentId) return;
-  const p = S.places.find(x => x.id === S.currentId);
-  if (!confirm('Supprimer définitivement « ' + (p ? p.name : '?') + ' » ?')) return;
-  const done = await deletePlace(S.currentId);
-  if (!done) return;
-  ok('Lieu supprimé.');
-  closeSheet(true);
-}
-
-async function toggleFavorite(p) {
-  const saved = await updatePlace(p.id, { favorite: !p.favorite });
-  if (saved && S.currentId === p.id) {
-    EL['sheet-fav'].classList.toggle('on', saved.favorite);
-  }
-  renderAll();
-}
-
-
-/* ═══ 15 · SETTINGS ═══════════════════════════════════════════════════ */
-
-function openSettings() {
-  renderTypesEditor();
-  renderCriteriaEditor();
-  EL['ui-settings'].classList.add('on');
-  EL['ui-settings'].setAttribute('aria-hidden', 'false');
-}
-
-function closeSettings() {
-  EL['ui-settings'].classList.remove('on');
-  EL['ui-settings'].setAttribute('aria-hidden', 'true');
-}
-
-/* ── 15.1 Éditeur de types ────────────────────────────────────────── */
-
-function renderTypesEditor() {
-  const box = EL['set-types'];
-  box.innerHTML = '';
-  S.types.forEach(t => box.appendChild(typeRow(t)));
-}
-
-function typeRow(t) {
-  const row = document.createElement('div');
-  row.className = 'set-row';
-  row.dataset.id = t.id;
-  row.innerHTML =
-    '<input class="set-in set-emoji" value="' + esc(t.emoji) + '" maxlength="4" data-k="emoji">'
-  + '<input class="set-in set-lab" value="' + esc(t.label) + '" maxlength="60" data-k="label">'
-  + '<input class="set-in set-col" type="color" value="' + esc(t.color) + '" data-k="color">'
-  + '<span class="set-n dim">' + countByType(t.id) + '</span>'
-  + '<button type="button" class="btn xs" data-save>Enregistrer</button>'
-  + '<button type="button" class="btn xs danger" data-del>×</button>';
-
-  row.querySelector('[data-save]').addEventListener('click', async () => {
-    const patch = {};
-    row.querySelectorAll('[data-k]').forEach(i => { patch[i.dataset.k] = i.value; });
-    const saved = await updateType(t.id, patch);
-    if (saved) { ok('Type mis à jour.'); renderTypesEditor(); renderAll(); }
-  });
-
-  row.querySelector('[data-del]').addEventListener('click', async () => {
-    const n = countByType(t.id);
-    const msg = n
-      ? 'Supprimer « ' + t.label + ' » ? ' + n + ' lieu(x) perdront leur type.'
-      : 'Supprimer « ' + t.label + ' » ?';
-    if (!confirm(msg)) return;
-    if (await deleteType(t.id)) { ok('Type supprimé.'); openSettings(); renderAll(); }
-  });
-  return row;
-}
-
-function countByType(id) {
-  return S.places.filter(p => p.type_id === id).length;
-}
-
-async function addTypeFromForm() {
-  const label = EL['set-type-new-label'].value.trim();
-  if (!label) { err('Donne un libellé au type.'); return; }
-  const saved = await insertType({
-    label,
-    emoji: EL['set-type-new-emoji'].value.trim() || '📍',
-    color: EL['set-type-new-color'].value || '#7c8496'
-  });
-  if (!saved) return;
-  EL['set-type-new-label'].value = '';
-  EL['set-type-new-emoji'].value = '';
-  ok('Type ajouté.');
-  openSettings();
-  buildFilterOptions();
-  buildSheet();
-  renderAll();
-}
-
-/* ── 15.2 Éditeur de critères ─────────────────────────────────────── */
-
-function renderCriteriaEditor() {
-  const box = EL['set-criteria'];
-  box.innerHTML = '';
-  S.criteria.forEach(c => box.appendChild(critRow(c)));
-  EL['set-crit-warn'].classList.toggle('on', S.criteria.length === 0);
-}
-
-function critRow(c) {
-  const row = document.createElement('div');
-  row.className = 'set-row';
-  row.innerHTML =
-    '<code class="set-key">' + esc(c.key) + '</code>'
-  + '<input class="set-in set-lab" value="' + esc(c.label) + '" maxlength="60" data-k="label">'
-  + '<input class="set-in set-w" type="number" min="0.1" max="10" step="0.1" '
-  +   'value="' + esc(c.weight) + '" data-k="weight">'
-  + '<button type="button" class="btn xs" data-save>Enregistrer</button>'
-  + '<button type="button" class="btn xs danger" data-del>×</button>';
-
-  row.querySelector('[data-save]').addEventListener('click', async () => {
-    const patch = {
-      label: row.querySelector('[data-k="label"]').value,
-      weight: Number(row.querySelector('[data-k="weight"]').value)
-    };
-    if (await updateCriterion(c.id, patch)) {
-      ok('Critère mis à jour. Recalcul des scores…');
-      await recomputeAllScores();
-      openSettings();
-    }
-  });
-
-  row.querySelector('[data-del]').addEventListener('click', async () => {
-    if (!confirm('Supprimer le critère « ' + c.label
-      + ' » ? Les notes associées seront ignorées.')) return;
-    if (await deleteCriterion(c.id)) {
-      await recomputeAllScores();
-      ok('Critère supprimé.');
-      openSettings();
-    }
-  });
-  return row;
-}
-
-async function addCriterionFromForm() {
-  const label = EL['set-crit-new-label'].value.trim();
-  if (!label) { err('Donne un libellé au critère.'); return; }
-  const key = slugKey(label);
-  if (S.criteria.some(c => c.key === key)) {
-    err('Un critère porte déjà cette clé (' + key + ').'); return;
-  }
-  const saved = await insertCriterion({
-    key, label,
-    weight: Number(EL['set-crit-new-weight'].value) || 1
-  });
-  if (!saved) return;
-  EL['set-crit-new-label'].value = '';
-  ok('Critère ajouté.');
-  buildSheet();
-  openSettings();
-  renderAll();
-}
-
-function slugKey(s) {
-  return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '').slice(0, 40) || 'critere';
-}
-
-/* Après tout changement de pondération : rescore côté client puis push. */
-async function recomputeAllScores() {
-  let n = 0;
-  for (const p of S.places) {
-    const sc = computeScore(p.ratings);
-    if (sc !== p.score) {
-      await updatePlace(p.id, { score: sc });
-      n++;
-    }
-  }
-  if (n) info(n + ' score(s) recalculé(s).');
-  renderAll();
-}
-
-
-/* ═══ 16 · IO (import / export) ═══════════════════════════════════════ */
-
-/* ── 16.1 Export JSON ─────────────────────────────────────────────── */
-
-function exportJSON() {
-  const payload = {
-    app: 'prospection-lieux',
-    version: 1,
-    exported_at: new Date().toISOString(),
-    types: S.types.map(t => ({ label: t.label, emoji: t.emoji, color: t.color })),
-    criteria: S.criteria.map(c => ({ key: c.key, label: c.label, weight: c.weight })),
-    places: S.places.map(p => {
-      const o = {};
-      Object.keys(PLACE_SCHEMA).forEach(k => { o[k] = p[k]; });
-      o.type_label = (typeOf(p) || {}).label || null;
-      return o;
-    })
-  };
-  download('prospection-' + stamp() + '.json',
-    JSON.stringify(payload, null, 2), 'application/json');
-  ok(S.places.length + ' lieu(x) exportés.');
-}
-
-/* ── 16.2 Export CSV ──────────────────────────────────────────────── */
-
-/* ~70 lignes assumées : la logique d'aplatissement est indivisible. */
-function exportCSV() {
-  const rows = applyFilters();
-  if (!rows.length) { err('Aucun lieu à exporter avec ces filtres.'); return; }
-
-  const cols = [
-    { k: 'name',           h: 'Nom' },
-    { k: 'type_label',     h: 'Type' },
-    { k: 'address',        h: 'Adresse' },
-    { k: 'city',           h: 'Ville' },
-    { k: 'postal_code',    h: 'CP' },
-    { k: 'lat',            h: 'Latitude' },
-    { k: 'lng',            h: 'Longitude' },
-    { k: 'status',         h: 'Statut' },
-    { k: 'relation',       h: 'Relation' },
-    { k: 'priority',       h: 'Priorité' },
-    { k: 'legal_form',     h: 'Forme juridique' },
-    { k: 'governance',     h: 'Gouvernance' },
-    { k: 'business_model', h: 'Modèle éco' },
-    { k: 'tenure',         h: 'Occupation' },
-    { k: 'surface_total',  h: 'Surface m2' },
-    { k: 'surface_usable', h: 'Surface utile m2' },
-    { k: 'capacity',       h: 'Capacité' },
-    { k: 'rent_monthly',   h: 'Loyer mensuel' },
-    { k: 'contact_name',   h: 'Contact' },
-    { k: 'email',          h: 'Email' },
-    { k: 'phone',          h: 'Téléphone' },
-    { k: 'website',        h: 'Site' },
-    { k: 'revenue_sources', h: 'Revenus' },
-    { k: 'activities',     h: 'Activités' },
-    { k: 'features',       h: 'Équipements' },
-    { k: 'score',          h: 'Score' },
-    { k: 'favorite',       h: 'Favori' },
-    { k: 'next_action',    h: 'Prochaine action' },
-    { k: 'next_date',      h: 'Date action' },
-    { k: 'notes',          h: 'Notes' }
-  ];
-  /* Une colonne par critère : permet de réimporter les notes. */
-  S.criteria.forEach(c => cols.push({ crit: c.key, h: 'Note · ' + c.label }));
-
-  const cell = (p, c) => {
-    if (c.crit) {
-      const v = p.ratings && p.ratings[c.crit];
-      return v == null ? '' : v;
-    }
-    if (c.k === 'type_label') return (typeOf(p) || {}).label || '';
-    const v = p[c.k];
-    if (v == null) return '';
-    if (Array.isArray(v)) return v.join('|');
-    if (typeof v === 'boolean') return v ? 'oui' : '';
-    return v;
-  };
-
-  /* Guillemets doublés, séparateur ; (Excel FR), BOM UTF-8. */
-  const q = s => {
-    const str = String(s);
-    return /[";\n\r]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
-  };
-
-  const lines = [cols.map(c => q(c.h)).join(';')];
-  rows.forEach(p => lines.push(cols.map(c => q(cell(p, c))).join(';')));
-
-  download('prospection-' + stamp() + '.csv',
-    '\uFEFF' + lines.join('\r\n'), 'text/csv;charset=utf-8');
-  ok(rows.length + ' ligne(s) exportées.');
-}
-
-/* ── 16.3 Import JSON ─────────────────────────────────────────────── */
-
-async function importJSON(file) {
-  let payload;
-  try {
-    payload = JSON.parse(await file.text());
-  } catch (ex) {
-    err('Fichier JSON illisible : ' + ex.message);
-    return;
-  }
-  const list = Array.isArray(payload) ? payload : payload.places;
-  if (!Array.isArray(list) || !list.length) {
-    err('Aucun lieu trouvé dans ce fichier.');
-    return;
-  }
-  if (!confirm(list.length + ' lieu(x) à importer. Ils seront ajoutés '
-    + 'aux données existantes. Continuer ?')) return;
-
-  /* Résolution des types par libellé — création si absent. */
-  const byLabel = new Map(S.types.map(t => [t.label.toLowerCase(), t.id]));
-  let created = 0, failed = 0;
-
-  for (const raw of list) {
-    const lab = (raw.type_label || '').trim().toLowerCase();
-    if (lab && !byLabel.has(lab)) {
-      const t = await insertType({ label: raw.type_label, emoji: '📍', color: '#7c8496' });
-      if (t) byLabel.set(lab, t.id);
-    }
-    const clean = sanitizePlace(raw);
-    if (lab && byLabel.has(lab)) clean.type_id = byLabel.get(lab);
-    clean.score = computeScore(clean.ratings);
-    const saved = await insertPlace(clean, true);
-    saved ? created++ : failed++;
-  }
-
-  await loadAll();
-  ok(created + ' lieu(x) importés.' + (failed ? ' ' + failed + ' échec(s).' : ''));
-}
-
-function download(name, text, mime) {
-  const blob = new Blob([text], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
-
-function stamp() {
-  return new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
-}
-
-
-/* ═══ 17 · BOOT ═══════════════════════════════════════════════════════ */
-
-/* ── 17.1 Vérification du DOM ─────────────────────────────────────── */
-
-/* Échoue fort et tôt : un id renommé dans le HTML ne doit pas produire
-   un `undefined` silencieux trois interactions plus loin. */
-function assertDom() {
-  const missing = [];
-  DOM_IDS.forEach(id => {
-    const n = document.getElementById(id);
-    if (!n) missing.push(id);
-    else EL[id] = n;
-  });
-  if (missing.length) {
-    const msg = 'DOM incomplet — id(s) manquant(s) : ' + missing.join(', ');
-    document.body.innerHTML = '<pre class="fatal">' + esc(msg) + '</pre>';
-    throw new Error(msg);
-  }
-}
-
-/* ── 17.2 Câblage des événements ──────────────────────────────────── */
-
-function on(id, ev, fn) {
-  const n = EL[id];
-  if (!n) { console.warn('on(): id inconnu →', id); return; }
-  n.addEventListener(ev, fn);
-}
-
-function wireEvents() {
-  /* Auth */
-  on('auth-form', 'submit', authSubmit);
-  on('auth-toggle', 'click', () => authSetMode(authMode === 'login' ? 'signup' : 'login'));
-  on('btn-logout', 'click', authLogout);
-
-  /* Vues */
-  VIEWS.forEach(v => on('tab-' + v, 'click', () => setView(v)));
-
-  /* Filtres */
-  on('flt-q', 'input', debounce(readFiltersAndRender, 220));
-  MULTI_FILTERS.forEach(m => on(m.el, 'change', readFiltersAndRender));
-  on('flt-sort', 'change', readFiltersAndRender);
-  on('flt-score', 'input', () => {
-    EL['flt-score-val'].textContent = fmtNum(Number(EL['flt-score'].value), 1);
-    readFiltersAndRender();
-  });
-  on('flt-surface-min', 'input', debounce(readFiltersAndRender, 300));
-  on('flt-surface-max', 'input', debounce(readFiltersAndRender, 300));
-  on('flt-fav', 'change', readFiltersAndRender);
-  on('flt-viewport', 'change', readFiltersAndRender);
-  on('btn-flt-reset', 'click', resetFilters);
-  PRESETS.forEach(p => on('btn-preset-' + p, 'click', () => presetFilter(p)));
-
-  /* Carte */
-  on('btn-map-fit', 'click', fitToResults);
-  on('btn-map-pick', 'click', () => togglePickMode());
-
-  /* Tableau */
-  on('btn-columns', 'click', () => EL['ui-columns-menu'].classList.toggle('on'));
-
-  /* Fiche */
-  on('btn-new', 'click', () => openSheet(null));
-  on('btn-sheet-close', 'click', () => closeSheet());
-  on('btn-sheet-save', 'click', saveSheet);
-  on('btn-sheet-del', 'click', deleteSheet);
-  on('btn-sheet-geocode', 'click', geocodeFromSheet);
-  on('btn-sheet-fly', 'click', () => {
-    const p = S.places.find(x => x.id === S.currentId);
-    if (p) flyTo(p);
-  });
-  on('sheet-fav', 'click', () => {
-    EL['sheet-fav'].classList.toggle('on');
-    S.sheetDirty = true;
-  });
-  on('sheet-fields', 'input', () => { S.sheetDirty = true; });
-  on('sheet-fields', 'change', () => { S.sheetDirty = true; });
-  on('sheet-ratings', 'input', () => { S.sheetDirty = true; });
-
-  /* Réglages */
-  on('btn-settings', 'click', openSettings);
-  on('btn-settings-close', 'click', closeSettings);
-  on('btn-type-add', 'click', addTypeFromForm);
-  on('btn-crit-add', 'click', addCriterionFromForm);
-  on('btn-rescore', 'click', recomputeAllScores);
-
-  /* IO */
-  on('btn-export-json', 'click', exportJSON);
-  on('btn-export-csv', 'click', exportCSV);
-  on('btn-import', 'click', () => EL['io-file'].click());
-  on('io-file', 'change', ev => {
-    const f = ev.target.files[0];
-    if (f) importJSON(f);
-    ev.target.value = '';
-  });
-
-  /* Raccourcis clavier */
-  document.addEventListener('keydown', onKeydown);
-
-  /* Referme le menu colonnes au clic extérieur. */
-  document.addEventListener('click', ev => {
-    if (!ev.target.closest('#ui-columns-wrap')) {
-      EL['ui-columns-menu'].classList.remove('on');
-    }
-  });
-}
-
-function onKeydown(ev) {
-  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName);
-
-  if (ev.key === 'Escape') {
-    if (S.pickMode) { togglePickMode(false); return; }
-    if (EL['ui-settings'].classList.contains('on')) { closeSettings(); return; }
-    if (EL['ui-sheet'].classList.contains('on')) { closeSheet(); return; }
-  }
-  if ((ev.ctrlKey || ev.metaKey) && ev.key === 's') {
-    ev.preventDefault();
-    if (EL['ui-sheet'].classList.contains('on')) saveSheet();
-    return;
-  }
-  if (typing) return;
-
-  if (ev.key === 'n') { ev.preventDefault(); openSheet(null); }
-  if (ev.key === '/') { ev.preventDefault(); EL['flt-q'].focus(); }
-  if (ev.key === '1') setView('map');
-  if (ev.key === '2') setView('table');
-  if (ev.key === '3') setView('dash');
-}
-
-/* ── 17.3 Rendu global ────────────────────────────────────────────── */
-
-/* Point d'entrée unique du rendu : toute mutation appelle renderAll(). */
-function renderAll() {
-  const rows = applyFilters();
-  EL['ui-count'].textContent = rows.length + ' / ' + S.places.length;
-  EL['ui-count'].classList.toggle('filtered', rows.length !== S.places.length);
-
-  renderList(rows);
-  if (S.view === 'map')   renderMap(rows);
-  if (S.view === 'table') renderTable(rows);
-  if (S.view === 'dash')  renderDashboard(rows);
-}
-
-function setView(view) {
-  if (!VIEWS.includes(view)) return;
-  S.view = view;
-  lsSet(LS_VIEW, view);
-  VIEWS.forEach(v => {
-    EL['tab-' + v].classList.toggle('on', v === view);
-    EL['tab-' + v].setAttribute('aria-selected', v === view ? 'true' : 'false');
-    EL['view-' + v].classList.toggle('on', v === view);
-  });
-  if (view === 'map') refreshMapSize();
-  renderAll();
-}
-
-/* ── 17.4 Séquence de démarrage ───────────────────────────────────── */
-
-async function boot() {
-  Object.assign(EL, {});
-  document.querySelectorAll('[id]').forEach(n => EL[n.id] = n);
-  if (!assertDom(DOM_IDS)) {
-    document.body.insertAdjacentHTML('afterbegin',
-      '<div style="background:#7f1d1d;color:#fff;padding:12px;font:14px system-ui">' +
-      'Initialisation interrompue : structure HTML incomplète. Voir la console.</div>');
-    return;
-  }
-
-  const { data } = await sb.auth.getSession();
-  if (data.session && data.session.user) await enterApp(data.session.user);
-  else showAuth();
-}
-
-function showAuth() {
-  EL['ui-auth'].classList.add('on');
-  EL['ui-app'].classList.remove('on');
-  S.user = null;
-  S.places = [];
-}
-
-async function enterApp(user) {
-  if (S.user && S.user.id === user.id) return;   /* évite un double boot */
-  S.user = user;
-  EL['ui-user-mail'].textContent = user.email;
-  EL['ui-auth'].classList.remove('on');
-  EL['ui-app'].classList.add('on');
-
-  await loadAll();          /* types + criteria + places */
-  buildFilterOptions();
-  buildSheet();             /* dépend de S.types + S.criteria */
-  renderColumnsMenu();
-  writeFilters();
-  initMap();
-  setView(S.view);
-  refreshMapSize();
-}
-
-/* Le HTML charge ce script en fin de <body> : le DOM est prêt. */
-boot();
-</script>
-
+<script type="module" src="js/boot.js"></script>
 </body>
 </html>
