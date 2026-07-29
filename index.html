@@ -1444,9 +1444,9 @@ function onDelegate(id, evt, selector, fn) {
 /* ── 4.1 Échappement — obligatoire avant toute insertion HTML ───────── */
 function esc(v) {
   if (v == null) return '';
-  return String(v)
-    .replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
-    .replace(/"/g, '"').replace(/'/g, ''');
+  const d = document.createElement('div');
+  d.textContent = String(v);
+  return d.innerHTML;
 }
 
 /* ── 4.2 Création de nœuds (préféré à innerHTML) ────────────────────── */
