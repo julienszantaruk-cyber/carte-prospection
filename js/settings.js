@@ -1,214 +1,357 @@
 /* ═══════════════════════════════════════════════════════
-   15 · SETTINGS — types, critères, colonnes
+   15 · SETTINGS — types de lieux, critères, compte
+   Aligné sur les tables public.place_types et public.criteria
    ═══════════════════════════════════════════════════════ */
 
-import { S, saveLocal } from './state.js';
-import { EL, on, esc } from './dom.js';
-import { COLS } from './config.js';
+import { S } from './state.js';
+import { EL, on, esc, setVal, getVal } from './dom.js';
 import * as data from './data.js';
-import { ok, err, confirmBox } from './toast.js';
+import { ok, err, info, confirmBox } from './toast.js';
 
 let afterChange = () => {};
 
-const MODALS = ['m-types', 'm-criteria', 'm-cols'];
+/* ═══ Ouverture / fermeture du panneau ═══ */
 
-const openMod  = id => { if (EL[id]) EL[id].hidden = false; };
-const closeMod = id => { if (EL[id]) EL[id].hidden = true;  };
-
-/* ─── Types ─── */
-function renderTypes(){
-  const box = EL['ui-types-list'];
-  if (!box) return;
-  box.innerHTML = S.types.map(t => `
-    <div class="set-row" data-tid="${t.id}">
-      <input class="set-emoji" value="${esc(t.emoji)}" maxlength="4" data-k="emoji">
-      <input class="set-color" type="color" value="${esc(t.color)}" data-k="color">
-      <input class="set-label" value="${esc(t.label)}" data-k="label">
-      <input class="set-num" type="number" value="${t.sort_order ?? 0}"
-             min="0" max="999" data-k="sort_order" title="Ordre">
-      <button class="set-save" data-act="save">✓</button>
-      <button class="set-del"  data-act="del">🗑</button>
-    </div>`).join('') || '<p class="muted">Aucun type.</p>';
+export function openSettings(){
+  const p = EL['ui-settings'];
+  if (!p) return;
+  p.hidden = false;
+  p.classList.add('is-open');
+  renderTypes();
+  renderCriteria();
+  renderAccount();
 }
 
-async function typesAction(e){
-  const btn = e.target.closest('[data-act]');
-  if (!btn) return;
-  const row = btn.closest('[data-tid]');
-  if (!row) return;
-  const id  = row.dataset.tid;
-
-  if (btn.dataset.act === 'del'){
-    const used = S.places.filter(p => p.type_id === id).length;
-    const q = used
-      ? `Ce type est utilisé par ${used} lieu(x). Ils deviendront « non typés ». Continuer ?`
-      : 'Supprimer ce type ?';
-    if (!await confirmBox(q)) return;
-    try{ await data.deleteType(id); renderTypes(); ok('Type supprimé'); afterChange(); }
-    catch(e){ err('Suppression impossible'); }
-    return;
-  }
-
-  const get = k => row.querySelector(`[data-k="${k}"]`).value;
-  try{
-    await data.saveType({ id, label:get('label'), emoji:get('emoji'),
-                          color:get('color'), sort_order:get('sort_order') });
-    renderTypes(); ok('Type enregistré'); afterChange();
-  }catch(e){ err('Enregistrement échoué'); }
+export function closeSettings(){
+  const p = EL['ui-settings'];
+  if (!p) return;
+  p.classList.remove('is-open');
+  setTimeout(() => { p.hidden = true; }, 180);
 }
 
-/* ─── Critères ─── */
-function renderCrit(){
-  const box = EL['ui-criteria-list'];
-  if (!box) return;
-  box.innerHTML = S.crit.map(c => `
-    <div class="set-row" data-cid="${c.id}">
-      <input class="set-label" value="${esc(c.label)}" data-k="label">
-      <input class="set-num" type="number" value="${c.weight}"
-             min="1" max="10" data-k="weight" title="Poids 1–10">
-      <input class="set-num" type="number" value="${c.sort_order ?? 0}"
-             min="0" max="999" data-k="sort_order" title="Ordre">
-      <button class="set-save" data-act="save">✓</button>
-      <button class="set-del"  data-act="del">🗑</button>
-    </div>`).join('') || '<p class="muted">Aucun critère.</p>';
+export function toggleSettings(){
+  const p = EL['ui-settings'];
+  if (!p) return;
+  if (p.hidden) openSettings();
+  else closeSettings();
 }
 
-async function critAction(e){
-  const btn = e.target.closest('[data-act]');
-  if (!btn) return;
-  const row = btn.closest('[data-cid]');
-  if (!row) return;
-  const id  = row.dataset.cid;
+/* ═══ Menu déroulant (le bug du `...` était ici) ═══ */
 
-  if (btn.dataset.act === 'del'){
-    if (!await confirmBox('Supprimer ce critère ? Les scores seront recalculés.')) return;
-    try{
-      await data.deleteCriterion(id);
-      const n = await data.recalcAll();
-      renderCrit(); ok(`Critère supprimé · ${n} score(s) recalculé(s)`); afterChange();
-    }catch(e){ err('Suppression impossible'); }
-    return;
-  }
+let menuOutsideBound = false;
 
-  const get = k => row.querySelector(`[data-k="${k}"]`).value;
-  try{
-    await data.saveCriterion({ id, label:get('label'),
-                               weight:get('weight'), sort_order:get('sort_order') });
-    const n = await data.recalcAll();
-    renderCrit(); ok(`Enregistré · ${n} score(s) recalculé(s)`); afterChange();
-  }catch(e){ err('Enregistrement échoué'); }
-}
-
-/* ─── Colonnes ─── */
-function renderCols(){
-  const box = EL['ui-cols-list'];
-  if (!box) return;
-  box.innerHTML = COLS.map(c => `
-    <label class="set-check">
-      <input type="checkbox" data-col="${c.k}"
-             ${S.cols.includes(c.k) ? 'checked' : ''}>
-      <span>${esc(c.l)}</span>
-    </label>`).join('');
-}
-
-function colsAction(e){
-  const cb = e.target.closest('[data-col]');
-  if (!cb) return;
-  const k = cb.dataset.col;
-  if (cb.checked){
-    if (!S.cols.includes(k)) S.cols.push(k);
-  } else {
-    if (S.cols.length <= 1){
-      cb.checked = true;
-      return err('Garde au moins une colonne.');
-    }
-    S.cols = S.cols.filter(x => x !== k);
-  }
-  // on respecte l'ordre de COLS, pas l'ordre de clic
-  S.cols = COLS.filter(c => S.cols.includes(c.k)).map(c => c.k);
-  saveLocal();
-  afterChange();
-}
-
-/* ─── Menu réglages ─── */
-function toggleMenu(force){
-  const m = EL['ui-settings-menu'];
+export function toggleMenu(force){
+  const m = EL['ui-menu'];
+  const b = EL['btn-menu'];
   if (!m) return;
-  m.hidden = (force !== undefined) ? !force : !m.hidden;
+
+  const willOpen = (typeof force === 'boolean') ? force : m.hidden;
+
+  m.hidden = !willOpen;
+  m.classList.toggle('is-open', willOpen);
+  b?.setAttribute('aria-expanded', String(willOpen));
+
+  /* Le listener global n'est attaché qu'une seule fois, jamais dans une
+     closure recréée à chaque ouverture (sinon fuite de handlers). */
+  if (willOpen && !menuOutsideBound){
+    menuOutsideBound = true;
+    document.addEventListener('click', onOutsideClick, true);
+    document.addEventListener('keydown', onMenuKey, true);
+  }
 }
 
-/* ─── Init ─── */
+function onOutsideClick(e){
+  const m = EL['ui-menu'];
+  const b = EL['btn-menu'];
+  if (!m || m.hidden) return;
+  if (m.contains(e.target)) return;
+  if (b && (e.target === b || b.contains(e.target))) return;
+  toggleMenu(false);
+}
+
+function onMenuKey(e){
+  const m = EL['ui-menu'];
+  if (!m || m.hidden) return;
+  if (e.key === 'Escape'){
+    e.preventDefault();
+    toggleMenu(false);
+    EL['btn-menu']?.focus();
+  }
+}
+
+/* ═══ Types de lieux ═══ */
+
+const DEFAULT_EMOJI = '📍';
+const DEFAULT_COLOR = '#7c9cff';
+
+function renderTypes(){
+  const box = EL['ui-types'];
+  if (!box) return;
+
+  const rows = S.types.map(t => `
+    <div class="set-row" data-type="${t.id}">
+      <input class="set-emoji" type="text" maxlength="4"
+             value="${esc(t.emoji || DEFAULT_EMOJI)}" aria-label="Emoji du type">
+      <input class="set-color" type="color"
+             value="${esc(t.color || DEFAULT_COLOR)}" aria-label="Couleur du type">
+      <input class="set-label" type="text"
+             value="${esc(t.label || '')}" placeholder="Nom du type"
+             aria-label="Nom du type">
+      <input class="set-num" type="number" step="1"
+             value="${Number(t.sort_order ?? 0)}" aria-label="Ordre d'affichage">
+      <button type="button" class="set-save" data-act="save-type"
+              title="Enregistrer">✓</button>
+      <button type="button" class="set-del" data-act="del-type"
+              title="Supprimer">×</button>
+    </div>`).join('');
+
+  box.innerHTML = rows || '<p class="muted">Aucun type. Ajoute-en un ci-dessous.</p>';
+}
+
+async function addType(){
+  const label = getVal('f-new-type').trim();
+  if (!label) return err('Donne un nom au type.');
+  try {
+    await data.saveType({
+      label,
+      emoji: DEFAULT_EMOJI,
+      color: DEFAULT_COLOR,
+      sort_order: S.types.length
+    });
+    setVal('f-new-type', '');
+    renderTypes();
+    afterChange();
+    ok('Type ajouté');
+  } catch (e) {
+    console.error(e);
+    err('Ajout impossible');
+  }
+}
+
+async function saveTypeRow(row){
+  const id = row.dataset.type;
+  const t  = S.types.find(x => x.id === id);
+  if (!t) return;
+
+  const label = row.querySelector('.set-label')?.value.trim() || '';
+  if (!label) return err('Le nom ne peut pas être vide.');
+
+  try {
+    await data.saveType({
+      id,
+      label,
+      emoji:      row.querySelector('.set-emoji')?.value.trim() || DEFAULT_EMOJI,
+      color:      row.querySelector('.set-color')?.value || DEFAULT_COLOR,
+      sort_order: Number(row.querySelector('.set-num')?.value) || 0
+    });
+    renderTypes();
+    afterChange();
+    ok('Type mis à jour');
+  } catch (e) {
+    console.error(e);
+    err('Mise à jour impossible');
+  }
+}
+
+async function delType(row){
+  const id = row.dataset.type;
+  const t  = S.types.find(x => x.id === id);
+  if (!t) return;
+
+  const used = S.places.filter(p => p.type_id === id).length;
+  const msg  = used
+    ? `« ${t.label} » est utilisé par ${used} lieu(x). Ils passeront à « sans type ». Continuer ?`
+    : `Supprimer le type « ${t.label} » ?`;
+  if (!await confirmBox(msg)) return;
+
+  try {
+    await data.deleteType(id);
+    renderTypes();
+    afterChange();
+    ok('Type supprimé');
+  } catch (e) {
+    console.error(e);
+    err('Suppression impossible');
+  }
+}
+
+/* ═══ Critères d'évaluation ═══ */
+
+function renderCriteria(){
+  const box = EL['ui-criteria'];
+  if (!box) return;
+
+  const rows = S.crit.map(c => `
+    <div class="set-row" data-crit="${c.id}">
+      <input class="set-label" type="text"
+             value="${esc(c.label || '')}" placeholder="Libellé du critère"
+             aria-label="Libellé du critère">
+      <input class="set-num" type="number" min="0" max="10" step="0.5"
+             value="${Number(c.weight ?? 1)}" aria-label="Pondération">
+      <input class="set-num" type="number" step="1"
+             value="${Number(c.sort_order ?? 0)}" aria-label="Ordre d'affichage">
+      <button type="button" class="set-save" data-act="save-crit"
+              title="Enregistrer">✓</button>
+      <button type="button" class="set-del" data-act="del-crit"
+              title="Supprimer">×</button>
+    </div>`).join('');
+
+  const total = S.crit.reduce((s, c) => s + (Number(c.weight) || 0), 0);
+  box.innerHTML = (rows || '<p class="muted">Aucun critère.</p>')
+    + `<p class="muted set-total">Somme des pondérations : ${total}</p>`;
+}
+
+/** Clé technique stable dérivée du libellé (colonne criteria.key). */
+function slug(s){
+  return (s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40) || 'critere';
+}
+
+async function addCriterion(){
+  const label = getVal('f-new-crit').trim();
+  if (!label) return err('Donne un libellé au critère.');
+
+  let key = slug(label), n = 2;
+  while (S.crit.some(c => c.key === key)) key = slug(label) + '_' + n++;
+
+  try {
+    await data.saveCriterion({
+      key, label, weight: 1, sort_order: S.crit.length
+    });
+    setVal('f-new-crit', '');
+    renderCriteria();
+    afterChange();
+    ok('Critère ajouté');
+  } catch (e) {
+    console.error(e);
+    err('Ajout impossible');
+  }
+}
+
+async function saveCritRow(row){
+  const id = row.dataset.crit;
+  const c  = S.crit.find(x => x.id === id);
+  if (!c) return;
+
+  const nums  = row.querySelectorAll('.set-num');
+  const label = row.querySelector('.set-label')?.value.trim() || '';
+  if (!label) return err('Le libellé ne peut pas être vide.');
+
+  const weight = Number(nums[0]?.value);
+  if (!Number.isFinite(weight) || weight < 0){
+    return err('La pondération doit être un nombre positif.');
+  }
+
+  try {
+    await data.saveCriterion({
+      id, key: c.key, label, weight,
+      sort_order: Number(nums[1]?.value) || 0
+    });
+    renderCriteria();
+    afterChange();
+    ok('Critère mis à jour');
+  } catch (e) {
+    console.error(e);
+    err('Mise à jour impossible');
+  }
+}
+
+async function delCrit(row){
+  const id = row.dataset.crit;
+  const c  = S.crit.find(x => x.id === id);
+  if (!c) return;
+
+  const rated = S.places.filter(p => p.ratings && p.ratings[id] != null).length;
+  const msg   = rated
+    ? `« ${c.label} » est noté sur ${rated} lieu(x). Ces notes seront perdues et les scores recalculés. Continuer ?`
+    : `Supprimer le critère « ${c.label} » ?`;
+  if (!await confirmBox(msg)) return;
+
+  try {
+    await data.deleteCriterion(id);
+    renderCriteria();
+    afterChange();
+    ok('Critère supprimé');
+  } catch (e) {
+    console.error(e);
+    err('Suppression impossible');
+  }
+}
+
+/* ═══ Compte ═══ */
+
+function renderAccount(){
+  const box = EL['ui-account'];
+  if (!box) return;
+  const mail = S.user?.email || '—';
+  box.innerHTML = `
+    <p class="muted">Connecté en tant que <strong>${esc(mail)}</strong></p>
+    <p class="muted">${S.places.length} lieu(x) · ${S.types.length} type(s) · ${S.crit.length} critère(s)</p>`;
+}
+
+/* ═══ Init ═══ */
+
 export function initSettings(onChange){
   afterChange = onChange || afterChange;
 
-  /* Menu déroulant Réglages */
-  on('btn-settings', 'click', (e) => { e.stopPropagation(); toggleMenu(); });
-  document.addEventListener('click', (e) => {
-    const m = EL['ui-settings-menu'];
-    if (m && !m.hidden && !m.contains(e.target) && e.target !== EL['btn-settings']){
-      toggleMenu(false);
-    }
+  on('btn-settings',       'click', () => { toggleMenu(false); openSettings(); });
+  on('btn-settings-close', 'click', closeSettings);
+
+  on('btn-menu', 'click', e => { e.stopPropagation(); toggleMenu(); });
+
+  on('btn-new-type', 'click', addType);
+  on('f-new-type',   'keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addType(); } });
+
+  on('btn-new-crit', 'click', addCriterion);
+  on('f-new-crit',   'keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addCriterion(); } });
+
+  /* Délégation : types */
+  EL['ui-types']?.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const row = b.closest('[data-type]');
+    if (!row) return;
+    if (b.dataset.act === 'save-type') saveTypeRow(row);
+    if (b.dataset.act === 'del-type')  delType(row);
   });
 
-  /* Ouverture des modales */
-  on('btn-types',    'click', () => { toggleMenu(false); renderTypes(); openMod('m-types');    });
-  on('btn-criteria', 'click', () => { toggleMenu(false); renderCrit();  openMod('m-criteria'); });
-  on('btn-cols',     'click', () => { toggleMenu(false); renderCols();  openMod('m-cols');     });
-
-  /* Fermeture : bouton [data-close] + clic sur le fond */
-  for (const id of MODALS){
-    const mod = EL[id];
-    if (!mod) continue;
-    mod.addEventListener('click', (e) => {
-      if (e.target === mod || e.target.closest('[data-close]')) closeMod(id);
-    });
-  }
-
-  /* Actions dans les listes */
-  EL['ui-types-list']   ?.addEventListener('click',  typesAction);
-  EL['ui-criteria-list']?.addEventListener('click',  critAction);
-  EL['ui-cols-list']    ?.addEventListener('change', colsAction);
-
-  /* Ajout d'un type */
-  on('btn-type-add', 'click', async () => {
-    try{
-      await data.saveType({
-        label      : 'Nouveau type',
-        emoji      : '📍',
-        color      : '#6366f1',
-        sort_order : (S.types.length + 1) * 10
-      });
-      renderTypes(); ok('Type ajouté'); afterChange();
-    }catch(e){ err('Ajout impossible'); }
+  EL['ui-types']?.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const row = e.target.closest('[data-type]');
+    if (row){ e.preventDefault(); saveTypeRow(row); }
   });
 
-  /* Ajout d'un critère */
-  on('btn-criteria-add', 'click', async () => {
-    try{
-      await data.saveCriterion({
-        label      : 'Nouveau critère',
-        weight     : 3,
-        sort_order : (S.crit.length + 1) * 10
-      });
-      const n = await data.recalcAll();
-      renderCrit(); ok(`Critère ajouté · ${n} score(s) recalculé(s)`); afterChange();
-    }catch(e){ err('Ajout impossible'); }
+  /* Délégation : critères */
+  EL['ui-criteria']?.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const row = b.closest('[data-crit]');
+    if (!row) return;
+    if (b.dataset.act === 'save-crit') saveCritRow(row);
+    if (b.dataset.act === 'del-crit')  delCrit(row);
   });
 
-  /* Recalcul manuel de tous les scores */
-  on('btn-recalc', 'click', async () => {
-    try{
-      const n = await data.recalcAll();
-      ok(`${n} score(s) recalculé(s)`); afterChange();
-    }catch(e){ err('Recalcul échoué'); }
+  EL['ui-criteria']?.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const row = e.target.closest('[data-crit]');
+    if (row){ e.preventDefault(); saveCritRow(row); }
   });
 
-  /* Fermeture globale à l'Échap */
+  /* Échap ferme le panneau de réglages */
   document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape') return;
-    toggleMenu(false);
-    for (const id of MODALS){
-      if (EL[id] && !EL[id].hidden) closeMod(id);
-    }
+    const p = EL['ui-settings'];
+    if (e.key === 'Escape' && p && !p.hidden) closeSettings();
   });
+}
+
+/* Rafraîchissement externe (après un rechargement des données) */
+export function refreshSettings(){
+  const p = EL['ui-settings'];
+  if (!p || p.hidden) return;
+  renderTypes();
+  renderCriteria();
+  renderAccount();
 }
