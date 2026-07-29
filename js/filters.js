@@ -33,16 +33,26 @@ function matchQuery(p, q){
 /* ─── Filtres détaillés ─── */
 function matchFilters(p){
   const f = S.f;
+
   if (f.type     && p.type_id  !== f.type)     return false;
   if (f.status   && p.status   !== f.status)   return false;
   if (f.relation && p.relation !== f.relation) return false;
   if (f.prio     && String(p.priority) !== f.prio) return false;
 
-  const sc = p.score ?? 0;
-  if (sc < f.scoreMin || sc > f.scoreMax) return false;
+  /* Champs "identité juridique / modèle" */
+  if (f.legalForm     && p.legal_form     !== f.legalForm)     return false;
+  if (f.governance    && p.governance     !== f.governance)    return false;
+  if (f.businessModel && p.business_model !== f.businessModel) return false;
 
-  if (f.region && !(p.region || '').toLowerCase().includes(f.region)) return false;
-  if (f.city   && !(p.city   || '').toLowerCase().includes(f.city))   return false;
+  /* Score : seuil minimal unique */
+  if (f.scoreMin && (p.score ?? 0) < f.scoreMin) return false;
+
+  /* Surface */
+  const surf = p.surface ?? null;
+  if (f.surfaceMin !== null && (surf === null || surf < f.surfaceMin)) return false;
+  if (f.surfaceMax !== null && (surf === null || surf > f.surfaceMax)) return false;
+
+  if (f.city && !(p.city || '').toLowerCase().includes(f.city)) return false;
 
   if (f.tags){
     const want = f.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
@@ -50,8 +60,15 @@ function matchFilters(p){
     if (!want.every(t => has.includes(t))) return false;
   }
 
-  if (f.fav  && !p.favorite) return false;
-  if (f.late && !(p.next_date && p.next_date <= today())) return false;
+  if (f.fav && !p.favorite) return false;
+
+  /* Restriction à l'emprise visible de la carte */
+  if (f.inView && S.mapBounds){
+    if (p.lat === null || p.lng === null) return false;
+    const b = S.mapBounds;
+    if (p.lat < b.south || p.lat > b.north) return false;
+    if (p.lng < b.west  || p.lng > b.east)  return false;
+  }
 
   return true;
 }
@@ -68,40 +85,51 @@ const CMP = {
 
 /** Recalcule S.view depuis S.places */
 export function apply(){
-  const q = S.f.q.trim().toLowerCase();
+  const q = (S.f.q || '').trim().toLowerCase();
   S.view = S.places
     .filter(p => matchPreset(p) && matchQuery(p, q) && matchFilters(p))
     .sort(CMP[S.sort] || CMP.score_desc);
 
-  setTxt('side-count', `${S.view.length} / ${S.places.length}`);
+  setTxt('ui-count', `${S.view.length} / ${S.places.length}`);
   return S.view;
 }
 
 /* ─── Lecture des champs du DOM vers S.f ─── */
+const num = (id, dflt = null) => {
+  const v = getVal(id).trim();
+  return v === '' ? dflt : Number(v);
+};
+
 export function readFilters(){
-  S.f.q        = getVal('side-search');
-  S.f.type     = getVal('f-type');
-  S.f.status   = getVal('f-status');
-  S.f.relation = getVal('f-relation');
-  S.f.prio     = getVal('f-prio');
-  S.f.scoreMin = Number(getVal('f-score-min')) || 0;
-  S.f.scoreMax = Number(getVal('f-score-max')) || 100;
-  S.f.region   = getVal('f-region').trim().toLowerCase();
-  S.f.city     = getVal('f-city').trim().toLowerCase();
-  S.f.tags     = getVal('f-tags').trim();
-  S.f.fav      = EL['f-fav']?.checked  || false;
-  S.f.late     = EL['f-late']?.checked || false;
+  S.f.q             = getVal('flt-search');
+  S.f.type          = getVal('flt-type');
+  S.f.status        = getVal('flt-status');
+  S.f.relation      = getVal('flt-relation');
+  S.f.prio          = getVal('flt-priority');
+  S.f.legalForm     = getVal('flt-legal-form');
+  S.f.governance    = getVal('flt-governance');
+  S.f.businessModel = getVal('flt-business-model');
+  S.f.scoreMin      = num('flt-score', 0) || 0;
+  S.f.surfaceMin    = num('flt-surface-min');
+  S.f.surfaceMax    = num('flt-surface-max');
+  S.f.city          = getVal('flt-city').trim().toLowerCase();
+  S.f.tags          = getVal('flt-tags').trim();
+  S.f.fav           = EL['flt-fav']?.checked     || false;
+  S.f.inView        = EL['flt-in-view']?.checked || false;
 }
 
 export function resetFilters(){
-  for (const id of ['f-type','f-status','f-relation','f-prio',
-                    'f-region','f-city','f-tags']){
+  for (const id of ['flt-type','flt-status','flt-relation','flt-priority',
+                    'flt-legal-form','flt-governance','flt-business-model',
+                    'flt-city','flt-tags','flt-surface-min','flt-surface-max']){
     if (EL[id]) EL[id].value = '';
   }
-  if (EL['f-score-min']) EL['f-score-min'].value = 0;
-  if (EL['f-score-max']) EL['f-score-max'].value = 100;
-  if (EL['f-fav'])  EL['f-fav'].checked  = false;
-  if (EL['f-late']) EL['f-late'].checked = false;
+  if (EL['flt-score'])   EL['flt-score'].value = 0;
+  if (EL['flt-fav'])     EL['flt-fav'].checked = false;
+  if (EL['flt-in-view']) EL['flt-in-view'].checked = false;
+  S.preset = '';
+  EL['ui-presets']?.querySelectorAll('[data-preset]')
+    .forEach(b => b.classList.remove('is-active'));
   readFilters();
 }
 
@@ -110,42 +138,56 @@ export function initFilters(onChange){
   const run = () => { readFilters(); onChange(); };
 
   let timer;
-  on('side-search', 'input', () => {
-    clearTimeout(timer);
-    timer = setTimeout(run, 180);
-  });
+  const debounced = () => { clearTimeout(timer); timer = setTimeout(run, 180); };
 
-  on('side-btn-clear', 'click', () => {
-    if (EL['side-search']) EL['side-search'].value = '';
+  /* Recherche */
+  on('flt-search', 'input', debounced);
+  on('btn-flt-clear', 'click', () => {
+    if (EL['flt-search']) EL['flt-search'].value = '';
     run();
   });
 
-  for (const id of ['f-type','f-status','f-relation','f-prio',
-                    'f-score-min','f-score-max','f-fav','f-late']){
+  /* Selects et cases à cocher */
+  for (const id of ['flt-type','flt-status','flt-relation','flt-priority',
+                    'flt-legal-form','flt-governance','flt-business-model',
+                    'flt-fav','flt-in-view']){
     on(id, 'change', run);
   }
-  for (const id of ['f-region','f-city','f-tags']){
-    on(id, 'input', () => { clearTimeout(timer); timer = setTimeout(run, 200); });
+
+  /* Champs numériques et texte libre */
+  for (const id of ['flt-city','flt-tags','flt-surface-min','flt-surface-max']){
+    on(id, 'input', debounced);
   }
 
-  on('f-reset', 'click', () => { resetFilters(); onChange(); });
+  /* Score : input pour le retour visuel immédiat du curseur */
+  on('flt-score', 'input', () => {
+    setTxt('ui-score-val', getVal('flt-score'));
+    debounced();
+  });
 
-  on('side-sort', 'change', () => {
-    S.sort = getVal('side-sort');
+  /* Réinitialisation */
+  on('btn-flt-reset', 'click', () => { resetFilters(); onChange(); });
+
+  /* Tri */
+  on('flt-sort', 'change', () => {
+    S.sort = getVal('flt-sort');
     onChange();
   });
 
-  on('side-btn-filters', 'click', () => {
-    const box = EL['side-filters'];
+  /* Repli du panneau */
+  on('btn-flt-toggle', 'click', () => {
+    const box = EL['ui-filters'];
     if (box) box.hidden = !box.hidden;
   });
 
-  on('side-presets', 'click', (e) => {
+  /* Presets */
+  EL['ui-presets']?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-preset]');
     if (!btn) return;
-    S.preset = btn.dataset.preset;
-    EL['side-presets'].querySelectorAll('[data-preset]')
-      .forEach(b => b.classList.toggle('is-on', b === btn));
+    const val = btn.dataset.preset;
+    S.preset = (S.preset === val) ? '' : val;   // re-clic = désactive
+    EL['ui-presets'].querySelectorAll('[data-preset]')
+      .forEach(b => b.classList.toggle('is-active', b.dataset.preset === S.preset));
     onChange();
   });
 }
