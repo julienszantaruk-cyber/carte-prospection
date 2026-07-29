@@ -12,16 +12,16 @@ let openCb = () => {};
 
 export function initTable(onOpen){
   openCb = onOpen || openCb;
-  EL['tbl-body']?.addEventListener('click', (e) => {
+  EL['ui-table-body']?.addEventListener('click', (e) => {
     const tr = e.target.closest('[data-id]');
     if (tr) openCb(tr.dataset.id);
   });
-  EL['tbl-head']?.addEventListener('click', (e) => {
+  EL['ui-table-head']?.addEventListener('click', (e) => {
     const th = e.target.closest('[data-sort]');
     if (!th) return;
     const k = th.dataset.sort;
     S.sort = S.sort === k + '_asc' ? k + '_desc' : k + '_asc';
-    if (EL['side-sort']) EL['side-sort'].value = S.sort;
+    if (EL['flt-sort']) EL['flt-sort'].value = S.sort;
     window.dispatchEvent(new CustomEvent('app:rerender'));
   });
 }
@@ -49,7 +49,7 @@ function cell(p, k){
 }
 
 export function render(){
-  const head = EL['tbl-head'], body = EL['tbl-body'];
+  const head = EL['ui-table-head'], body = EL['ui-table-body'];
   if (!head || !body) return;
 
   const cols = COLS.filter(c => S.cols.includes(c.k));
