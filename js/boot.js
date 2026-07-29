@@ -21,11 +21,18 @@ import { toast, ok, err, initConfirm } from './toast.js';
    ───────────────────────────────────────────── */
 function render(){
   filt.apply();          // recalcule S.view
-  list.render();         // toujours (panneau latéral visible partout)
 
-  if (S.tab === 'map')   map.render();
-  if (S.tab === 'table') table.render();
-  if (S.tab === 'dash')  dash.render();
+  // Chaque module est isolé : un plantage n'en bloque pas un autre
+  safe('list',  () => list.render());
+  if (S.tab === 'map')   safe('map',   () => map.render());
+  if (S.tab === 'table') safe('table', () => table.render());
+  if (S.tab === 'dash')  safe('dash',  () => dash.render());
+}
+
+/** Exécute fn en capturant l'erreur, pour ne pas casser le cycle de rendu */
+function safe(label, fn){
+  try{ fn(); }
+  catch(e){ console.error(`[render:${label}]`, e); }
 }
 
 /** Rechargement complet depuis Supabase, puis rendu */
@@ -45,6 +52,7 @@ async function reload(){
 const TABS = { map:'v-map', table:'v-table', dash:'v-dash' };
 
 function setTab(name){
+  if (!TABS[name]) name = 'map';
   S.tab = name;
   saveLocal();
 
@@ -54,7 +62,9 @@ function setTab(name){
     if (pane) pane.hidden = (t !== name);
   }
 
-  if (name === 'map') map.refreshSize();
+  // La carte doit se remesurer une fois son panneau visible
+  if (name === 'map' && S.mapReady) safe('map:size', () => map.refreshSize());
+
   render();
 }
 
@@ -63,8 +73,8 @@ function setTab(name){
    ───────────────────────────────────────────── */
 async function openPlace(id){
   await sheet.open(id);
-  if (id && S.tab === 'map') map.focusOn(id);
-  render();   // pour rafraîchir la sélection dans la liste / le tableau
+  if (id && S.tab === 'map') safe('map:focus', () => map.focusOn(id));
+  render();   // rafraîchit la sélection dans la liste / le tableau
 }
 
 /* ─────────────────────────────────────────────
@@ -72,7 +82,8 @@ async function openPlace(id){
    ───────────────────────────────────────────── */
 function initKeys(){
   document.addEventListener('keydown', (e) => {
-    const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+    const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)
+                 || e.target.isContentEditable;
 
     // "/" → focus recherche
     if (e.key === '/' && !inField){
@@ -113,14 +124,24 @@ async function start(user){
     return;
   }
 
-setTab(S.tab || 'map');          // ← visible d'abord
+  // 1. Rendre le panneau visible AVANT d'initialiser Leaflet
+  setTab(S.tab || 'map');
 
-if (!S.mapReady){
-  map.initMap(openPlace);
-  map.bindZoom();
-  S.mapReady = true;
-}
-map.fit();
+  // 2. Carte : une seule initialisation pour toute la session
+  if (!S.mapReady){
+    try{
+      map.initMap(openPlace);
+      map.bindZoom();
+      S.mapReady = true;
+      map.render();          // premier peuplement des marqueurs
+      map.fit();
+    }catch(e){
+      console.error('[map] init', e);
+      err('La carte n\'a pas pu s\'initialiser.');
+    }
+  } else {
+    safe('map:fit', () => map.fit());
+  }
 
   const n = S.places.length;
   if (n === 0) toast('Base vide — appuie sur « N » pour créer ton premier lieu.', 'ok');
@@ -138,8 +159,7 @@ async function stop(){
    BOOT
    ───────────────────────────────────────────── */
 async function boot(){
-  if (!assertDom()) {
-    // ids manquants : on log déjà en rouge, on continue en mode dégradé
+  if (!assertDom()){
     console.warn('[boot] DOM incomplet — certaines fonctions seront inertes');
   }
 
@@ -149,7 +169,7 @@ async function boot(){
   initConfirm();
   initKeys();
 
-  // Rendu déclenché par le tri du tableau
+  // Rendu déclenché par le tri du tableau ou le déplacement de la carte
   window.addEventListener('app:rerender', render);
 
   // Onglets
