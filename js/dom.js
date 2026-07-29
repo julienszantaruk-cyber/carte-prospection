@@ -225,3 +225,6 @@ export const esc = s => {
 export const setTxt = setText;
 export const getVal = id => val(id);
 export const setVal = (id, v) => val(id, v);
+
+cacheDom();
+window.addEventListener('DOMContentLoaded', cacheDom);
