@@ -8,6 +8,7 @@ import * as sane from './sanitize.js';
 import { computeScore } from './score.js';
 
 /* ─── Types de lieux ─── */
+
 export async function loadTypes(){
   const { data, error } = await sb.from('place_types')
     .select('*').order('sort_order').order('label');
@@ -41,6 +42,7 @@ export async function deleteType(id){
 }
 
 /* ─── Critères ─── */
+
 export async function loadCriteria(){
   const { data, error } = await sb.from('criteria')
     .select('*').order('sort_order').order('label');
@@ -49,17 +51,33 @@ export async function loadCriteria(){
   return S.crit;
 }
 
+/** Génère une key unique : slug du label, suffixée si collision. */
+function freshKey(label, excludeId = null){
+  const base = sane.slug(label) || 'critere';
+  const taken = new Set(
+    S.crit.filter(c => c.id !== excludeId).map(c => c.key)
+  );
+  if (!taken.has(base)) return base;
+  let i = 2;
+  while (taken.has(`${base}_${i}`)) i++;
+  return `${base}_${i}`;
+}
+
 export async function saveCriterion(c){
+  const label = sane.txt(c.label, 80) || 'Sans nom';
   const row = {
-    label      : sane.txt(c.label, 80) || 'Sans nom',
-    weight     : sane.int(c.weight, 1, 10) ?? 1,
+    label,
+    weight     : sane.dec(c.weight, 0, 10) ?? 1,   // numeric : décimales gardées
     sort_order : sane.int(c.sort_order, 0, 999) ?? 0
   };
+
   if (c.id){
+    // key immuable : les ratings existants la référencent
     const { error } = await sb.from('criteria').update(row).eq('id', c.id);
     if (error) throw error;
   } else {
     row.user_id = S.user.id;
+    row.key     = freshKey(label);
     const { error } = await sb.from('criteria').insert(row);
     if (error) throw error;
   }
@@ -73,6 +91,7 @@ export async function deleteCriterion(id){
 }
 
 /* ─── Lieux ─── */
+
 export async function loadPlaces(){
   const { data, error } = await sb.from('places')
     .select('*').order('updated_at', { ascending:false });
@@ -82,8 +101,8 @@ export async function loadPlaces(){
 }
 
 export async function savePlace(draft){
-  const row   = sane.place(draft);
-  row.score   = computeScore(row.ratings, S.crit);
+  const row = sane.place(draft);
+  row.score = computeScore(row.ratings, S.crit);
 
   if (draft.id){
     const { data, error } = await sb.from('places')
@@ -134,6 +153,7 @@ export async function recalcAll(){
 }
 
 /* ─── Journal ─── */
+
 export async function loadLogs(placeId){
   const { data, error } = await sb.from('place_logs')
     .select('*').eq('place_id', placeId)
@@ -162,56 +182,16 @@ export async function deleteLog(id){
   S.logs = S.logs.filter(l => l.id !== id);
 }
 
-/* ─── Seed : types + critères par défaut au premier login ─── */
-const SEED_TYPES = [
-  { label:'Salle de concert', emoji:'🎤', color:'#6366f1', sort_order:1 },
-  { label:'Théâtre',          emoji:'🎭', color:'#a855f7', sort_order:2 },
-  { label:'Café-concert',     emoji:'☕', color:'#f59e0b', sort_order:3 },
-  { label:'Festival',         emoji:'🎪', color:'#ec4899', sort_order:4 },
-  { label:'Centre culturel',  emoji:'🏛️', color:'#14b8a6', sort_order:5 },
-  { label:'Médiathèque',      emoji:'📚', color:'#3b82f6', sort_order:6 },
-  { label:'Bar / Pub',        emoji:'🍺', color:'#eab308', sort_order:7 },
-  { label:'Plein air',        emoji:'🌳', color:'#22c55e', sort_order:8 },
-  { label:'Autre',            emoji:'📍', color:'#64748b', sort_order:99 }
-];
+/* ─── Seed : délégué au SQL (public.seed_defaults) ─── */
 
-const SEED_CRIT = [
-  { label:'Adéquation artistique', weight:5, sort_order:1 },
-  { label:'Jauge adaptée',         weight:4, sort_order:2 },
-  { label:'Conditions financières',weight:4, sort_order:3 },
-  { label:'Qualité technique',     weight:3, sort_order:4 },
-  { label:'Accessibilité',         weight:2, sort_order:5 },
-  { label:'Réactivité du contact', weight:3, sort_order:6 }
-];
-
-export async function seedIfEmpty(){
-  await Promise.all([loadTypes(), loadCriteria()]);
-
-  const jobs = [];
-  if (S.types.length === 0){
-    jobs.push(
-      sb.from('place_types').insert(
-        SEED_TYPES.map(t => ({ ...t, user_id: S.user.id }))
-      )
-    );
-  }
-  if (S.crit.length === 0){
-    jobs.push(
-      sb.from('criteria').insert(
-        SEED_CRIT.map(c => ({ ...c, user_id: S.user.id }))
-      )
-    );
-  }
-
-  if (jobs.length){
-    const res = await Promise.all(jobs);
-    for (const r of res) if (r.error) console.error('[seed]', r.error);
-    await Promise.all([loadTypes(), loadCriteria()]);
-  }
+export async function seedDefaults(){
+  const { error } = await sb.rpc('seed_defaults');
+  if (error) console.error('[seed]', error);
 }
 
 /** Chargement complet après connexion */
 export async function loadAll(){
-  await seedIfEmpty();
+  await seedDefaults();
+  await Promise.all([loadTypes(), loadCriteria()]);
   await loadPlaces();
 }
