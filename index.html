@@ -501,6 +501,14 @@ body.placing-cursor, body.placing-cursor #map{ cursor:crosshair !important; }
 .rdvrow .nm{ font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .rdvrow .ad{ margin-left:auto; color:var(--mut); font-size:12px;
              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40%; }
+
+  .fmode{display:flex;gap:6px;margin:8px 0}
+.fmode button{
+  flex:1;padding:6px 10px;border:1px solid #d8dbe0;border-radius:8px;
+  background:#fff;font-size:12px;cursor:pointer;transition:.15s
+}
+.fmode button.on{background:#2563eb;border-color:#2563eb;color:#fff}
+  
 </style>
 </head>
 <body>
@@ -568,6 +576,11 @@ body.placing-cursor, body.placing-cursor #map{ cursor:crosshair !important; }
 
       <div class="fpills" id="f-pills"></div>
 
+      <div class="fmode" id="f-mode" style="display:none">
+  <button type="button" data-m="any" class="on">Au moins un</button>
+  <button type="button" data-m="all">Tous</button>
+</div>
+      
       <div class="fpanel" id="f-panel">
         <div class="fpanel-in">
           <div class="fgrp">
@@ -757,6 +770,11 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
   "&#" + c.charCodeAt(0) + ";");
 const isMobile = () => window.matchMedia("(max-width:860px)").matches;
+
+  /* ── multi-types ── */
+const typesOf = p =>
+  Array.isArray(p.type_ids) ? p.type_ids
+  : (p.type_id != null ? [p.type_id] : []);
 
 /* FIX #6 (p4) : bloque javascript: / data: dans les href utilisateur */
 function safeUrl(u) {
@@ -1089,6 +1107,29 @@ function sanitize(payload) {
 /* ════════════════════════════════════════════
    FILTRES
    ════════════════════════════════════════════ */
+
+/* ── normalisation multi-types (tolère l'ancien type_id) ── */
+const typesOf = p =>
+  Array.isArray(p.type_ids) ? p.type_ids
+  : (p.type_id != null ? [p.type_id] : []);
+
+/* ── mode de combinaison des types ── */
+F.mode = F.mode || "any";   // "any" = au moins un | "all" = tous
+
+/* ── le filtre lui-même ── */
+function matches(p) {
+  if (F.types.size) {
+    const ts = typesOf(p);
+    const hit = F.mode === "all"
+      ? [...F.types].every(id => ts.includes(id))
+      : ts.some(id => F.types.has(id));
+    if (!hit) return false;
+  }
+  if (F.stat.size && !F.stat.has(p.status || "todo")) return false;
+  if (F.prio.size && !F.prio.has(p.prio   || "mid"))  return false;
+  return true;
+}
+
 function chip(on, color, label, n, onclick) {
   const b = document.createElement("button");
   b.type = "button";
@@ -1098,12 +1139,13 @@ function chip(on, color, label, n, onclick) {
   b.onclick = onclick;
   return b;
 }
+
 function refreshFilters() { buildFilters(); syncFilterUI(); render(); }
 
 function buildFilters() {
   const ct = $("f-types"); ct.innerHTML = "";
   TYPES.forEach(t => {
-    const n = PLACES.filter(p => p.type_id === t.id).length;
+    const n = PLACES.filter(p => typesOf(p).includes(t.id)).length;
     ct.appendChild(chip(F.types.has(t.id), t.color, t.emoji + " " + esc(t.label), n, () => {
       F.types.has(t.id) ? F.types.delete(t.id) : F.types.add(t.id); refreshFilters();
     }));
@@ -1122,10 +1164,25 @@ function buildFilters() {
       F.prio.has(k) ? F.prio.delete(k) : F.prio.add(k); refreshFilters();
     }));
   });
+
+  /* toggle ANY/ALL : utile seulement à partir de 2 types cochés */
+  const fm = $("f-mode");
+  if (fm) {
+    fm.style.display = F.types.size > 1 ? "flex" : "none";
+    [...fm.children].forEach(b => b.classList.toggle("on", b.dataset.m === F.mode));
+  }
 }
+
 $("f-types-all").onclick = () => { F.types.clear(); refreshFilters(); };
 $("f-stat-all").onclick  = () => { F.stat.clear();  refreshFilters(); };
 $("f-prio-all").onclick  = () => { F.prio.clear();  refreshFilters(); };
+
+if ($("f-mode")) $("f-mode").onclick = e => {
+  const b = e.target.closest("button[data-m]");
+  if (!b) return;
+  F.mode = b.dataset.m;
+  refreshFilters();
+};
 
 /* FIX #19 (p3) : debounce sur la recherche */
 const doSearch = debounce(() => render(), 220);
@@ -1185,11 +1242,12 @@ $("sort-tog").onclick = () => {
 
 function filtered() {
   let rows = PLACES.filter(p => {
-    if (F.types.size && !F.types.has(p.type_id)) return false;
-    if (F.stat.size  && !F.stat.has(p.status || "todo")) return false;
-    if (F.prio.size  && !F.prio.has(p.prio || "mid")) return false;
+    if (!matches(p)) return false;                    // 👈 types (any/all) + statut + prio
     if (F.q) {
-      const hay = [p.name, p.address, p.contact, p.description, p.phone, p.email, typeOf(p).label]
+      const labels = typesOf(p)
+        .map(id => (TYPES.find(t => t.id === id) || {}).label || "")
+        .join(" ");
+      const hay = [p.name, p.address, p.contact, p.description, p.phone, p.email, labels]
         .join(" ").toLowerCase();
       if (hay.indexOf(F.q) === -1) return false;
     }
