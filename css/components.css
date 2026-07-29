@@ -430,3 +430,11 @@ input[type=file]{ font-size:12px; }
   background:var(--acc); color:#fff;
   border:0; border-radius:var(--r-xs); cursor:pointer;
 }
+.badge{display:inline-block;min-width:2.2em;padding:.1em .45em;border-radius:.4em;
+       font-variant-numeric:tabular-nums;text-align:center;font-weight:600}
+.badge--high{background:#064e3b;color:#6ee7b7}
+.badge--mid {background:#78350f;color:#fcd34d}
+.badge--low {background:#7f1d1d;color:#fca5a5}
+.badge--none{background:#374151;color:#9ca3af}
+.badge--partial{opacity:.85}
+.badge sup{font-size:.7em;margin-left:.1em}
