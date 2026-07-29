@@ -42,13 +42,16 @@ async function reload(){
 /* ─────────────────────────────────────────────
    ONGLETS
    ───────────────────────────────────────────── */
+const TABS = { map:'v-map', table:'v-table', dash:'v-dash' };
+
 function setTab(name){
   S.tab = name;
   saveLocal();
 
-  for (const t of ['map', 'table', 'dash']){
-    EL['tab-' + t]?.classList.toggle('is-on', t === name);
-    if (EL['pane-' + t]) EL['pane-' + t].hidden = (t !== name);
+  for (const t of Object.keys(TABS)){
+    EL['btn-view-' + t]?.classList.toggle('is-active', t === name);
+    const pane = EL[TABS[t]];
+    if (pane) pane.hidden = (t !== name);
   }
 
   if (name === 'map') map.refreshSize();
@@ -74,7 +77,7 @@ function initKeys(){
     // "/" → focus recherche
     if (e.key === '/' && !inField){
       e.preventDefault();
-      EL['side-search']?.focus();
+      EL['flt-search']?.focus();
       return;
     }
     // "n" → nouveau lieu
@@ -85,9 +88,10 @@ function initKeys(){
     }
     // Ctrl/Cmd + S → enregistrer si la fiche est ouverte
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's'){
-      if (!EL['sheet'].hidden){
+      const sh = EL['sheet'];
+      if (sh && !sh.hidden){
         e.preventDefault();
-        EL['sheet-btn-save']?.click();
+        EL['btn-save']?.click();
       }
     }
   });
@@ -96,19 +100,15 @@ function initKeys(){
 /* ─────────────────────────────────────────────
    APRÈS CONNEXION
    ───────────────────────────────────────────── */
-async function start(session){
-  EL['auth-screen'].hidden = true;
-  EL['app'].hidden = false;
-  setTxt('top-user', session.user.email || '');
-
-  // Chargement des données (types, critères, lieux, seed si vide)
-  setTxt('top-status', 'Chargement…');
+async function start(user){
+  // auth.js gère déjà l'affichage de v-app / v-auth et l'email
+  setTxt('ui-status', 'Chargement…');
   try{
     await data.loadAll();
-    setTxt('top-status', '');
+    setTxt('ui-status', '');
   }catch(e){
     console.error(e);
-    setTxt('top-status', 'Erreur de chargement');
+    setTxt('ui-status', 'Erreur de chargement');
     err('Connexion à la base impossible. Vérifie les policies RLS.');
     return;
   }
@@ -130,8 +130,7 @@ async function start(session){
 }
 
 async function stop(){
-  EL['app'].hidden = true;
-  EL['auth-screen'].hidden = false;
+  // auth.js gère déjà le basculement v-app → v-auth
   S.places = []; S.view = []; S.logs = [];
   S.selId = null;
   sheet.close();
@@ -156,13 +155,12 @@ async function boot(){
   window.addEventListener('app:rerender', render);
 
   // Onglets
-  on('tab-map',   'click', () => setTab('map'));
-  on('tab-table', 'click', () => setTab('table'));
-  on('tab-dash',  'click', () => setTab('dash'));
+  on('btn-view-map',   'click', () => setTab('map'));
+  on('btn-view-table', 'click', () => setTab('table'));
+  on('btn-view-dash',  'click', () => setTab('dash'));
 
   // Nouveau lieu
-  on('top-btn-new',  'click', () => openPlace(null));
-  on('side-btn-new', 'click', () => openPlace(null));
+  on('btn-new', 'click', () => openPlace(null));
 
   // Modules dépendant des données
   filt.initFilters(render);
@@ -174,7 +172,7 @@ async function boot(){
   io.initIo(reload);
 
   // Auth en dernier : c'est lui qui déclenche start()
-  auth.initAuth(start, stop);
+  auth.initAuth({ onLogin: start, onLogout: stop });
 }
 
 /* Go */
