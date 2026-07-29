@@ -29,10 +29,10 @@ export const warn = t => toast(t, 'warn');
 let resolver = null;
 
 export function confirmBox(text){
-  const mod = EL['mod-confirm'];
+  const mod = EL['m-confirm'];
   if (!mod) return Promise.resolve(window.confirm(text));
 
-  EL['mod-confirm-text'].textContent = text;
+  EL['ui-confirm-text'].textContent = text;
   mod.hidden = false;
 
   return new Promise(res => { resolver = res; });
@@ -40,12 +40,12 @@ export function confirmBox(text){
 
 export function initConfirm(){
   const close = (val) => {
-    EL['mod-confirm'].hidden = true;
+    EL['m-confirm'].hidden = true;
     if (resolver){ resolver(val); resolver = null; }
   };
-  EL['mod-confirm-ok']?.addEventListener('click', () => close(true));
-  EL['mod-confirm-cancel']?.addEventListener('click', () => close(false));
-  EL['mod-confirm']?.addEventListener('click', e => {
-    if (e.target === EL['mod-confirm']) close(false);
+  EL['btn-confirm-ok']?.addEventListener('click', () => close(true));
+  EL['btn-confirm-cancel']?.addEventListener('click', () => close(false));
+  EL['m-confirm']?.addEventListener('click', e => {
+    if (e.target === EL['m-confirm']) close(false);
   });
 }
