@@ -3542,13 +3542,11 @@ $("#sh-del").onclick = async () => {
    ═══════════════════════════════════════════════════════════ */
 
 function renderLogs(placeId) {
-  const box = $("#i-logs");
+  const box  = $("i-logbox");
   const list = S.logs[placeId] || [];
-  $("#i-logform").hidden = !placeId;
-  $("#i-lognote").hidden = !!placeId;
 
   if (!list.length) {
-    box.innerHTML = '<div class="lg-empty">Aucune entrée pour le moment.</div>';
+    box.innerHTML = '<div class="lg-empty">Aucune entrée pour l’instant.</div>';
     return;
   }
 
@@ -3558,36 +3556,55 @@ function renderLogs(placeId) {
         <span class="lg-kind k-${esc(e.kind || "note")}">${esc(e.kind || "note")}</span>
         <span class="lg-date">${fmtDate(e.created_at)}</span>
         <span class="flex1"></span>
-        <button class="lg-del" data-id="${e.id}" type="button" title="Supprimer">✕</button>
+        <button class="lg-del" data-id="${esc(e.id)}" type="button" title="Supprimer">✕</button>
       </div>
       <div class="lg-txt">${esc(e.body)}</div>
     </div>`).join("");
-
-  $$(".lg-del", box).forEach(b => {
-    b.onclick = async () => {
-      const { error } = await sb.from("place_logs").delete().eq("id", b.dataset.id);
-      if (error) { toast(error.message, "bad"); return; }
-      S.logs[placeId] = S.logs[placeId].filter(x => x.id !== b.dataset.id);
-      renderLogs(placeId);
-    };
-  });
 }
 
-$("#i-logadd").onclick = async () => {
-  if (!S.sel) { toast("Enregistre d'abord le lieu.", "bad"); return; }
-  const body = $("#i-logbody").value.trim();
-  if (!body) { $("#i-logbody").focus(); return; }
+/* Suppression — délégation posée une fois sur le conteneur */
+$("i-logbox").addEventListener("click", async ev => {
+  const btn = ev.target.closest(".lg-del");
+  if (!btn) return;
+
+  const id = btn.dataset.id;
+  const placeId = S.sel;
+  btn.disabled = true;
+
+  const { error } = await sb.from("place_logs").delete().eq("id", id);
+  if (error) { btn.disabled = false; toast(error.message, "bad"); return; }
+
+  S.logs[placeId] = (S.logs[placeId] || []).filter(x => x.id !== id);
+  renderLogs(placeId);
+  toast("Entrée supprimée ✓", "good");
+});
+
+/* Ajout */
+$("i-logadd").onclick = async () => {
+  if (!S.sel) { toast("Enregistre d’abord le lieu.", "bad"); return; }
+
+  const ta   = $("i-logbody");
+  const body = ta.value.trim();
+  if (!body) { ta.focus(); return; }
+
+  const btn = $("i-logadd");
+  btn.disabled = true;
 
   const row = {
-    place_id: S.sel, user_id: S.user.id,
-    kind: $("#i-logkind").value, body: body.slice(0, 3000)
+    place_id: S.sel,
+    user_id:  S.user.id,
+    kind:     $("i-logkind").value,
+    body:     body.slice(0, 3000)
   };
 
-  const { data, error } = await sb.from("place_logs").insert(row).select().single();
+  const { data, error } = await sb
+    .from("place_logs").insert(row).select().single();
+
+  btn.disabled = false;
   if (error) { toast("Erreur : " + error.message, "bad"); return; }
 
   (S.logs[S.sel] = S.logs[S.sel] || []).unshift(data);
-  $("#i-logbody").value = "";
+  ta.value = "";
   renderLogs(S.sel);
   toast("Entrée ajoutée ✓", "good");
 };
