@@ -1,0 +1,117 @@
+/* ═══════════════════════════════════════════════════════
+   BASE — variables, reset, typographie
+   Pour changer le thème : modifie UNIQUEMENT ce bloc :root
+   ═══════════════════════════════════════════════════════ */
+
+:root{
+  /* Fonds */
+  --bg:        #0b0e14;
+  --bg-2:      #11151f;
+  --bg-3:      #171d29;
+  --bg-hover:  #1d2534;
+
+  /* Bordures */
+  --line:      #232b3a;
+  --line-soft: #1a2130;
+
+  /* Textes */
+  --txt:       #e6eaf2;
+  --txt-dim:   #98a2b8;
+  --txt-mute:  #64708a;
+
+  /* Accents */
+  --acc:       #6366f1;
+  --acc-hi:    #818cf8;
+  --acc-dim:   #4f46e5;
+  --ok:        #34d399;
+  --warn:      #fbbf24;
+  --danger:    #f87171;
+
+  /* Rayons */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r:    10px;
+  --r-lg: 14px;
+
+  /* Espacements */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+
+  /* Dimensions */
+  --topbar-h: 56px;
+  --side-w:   340px;
+  --sheet-w:  520px;
+
+  /* Ombres */
+  --shadow:    0 8px 32px rgba(0,0,0,.45);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,.6);
+
+  /* Typo */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --t: 140ms cubic-bezier(.4,0,.2,1);
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html,body{ height:100%; }
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--txt);
+  font-family:var(--font);
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+
+h1,h2,h3{ margin:0; font-weight:600; line-height:1.25; }
+h1{ font-size:24px; }
+h2{ font-size:17px; }
+h3{ font-size:13px; color:var(--txt-dim);
+    text-transform:uppercase; letter-spacing:.06em; }
+
+p{ margin:0; }
+
+button,input,select,textarea{ font:inherit; color:inherit; }
+
+a{ color:var(--acc-hi); text-decoration:none; }
+a:hover{ text-decoration:underline; }
+
+hr.sep{ border:0; border-top:1px solid var(--line);
+        margin:var(--s-4) 0; }
+
+.muted{ color:var(--txt-dim); font-size:12px; }
+.dot{ color:var(--acc); }
+
+[hidden]{ display:none !important; }
+
+/* Focus visible — accessibilité clavier */
+:focus-visible{
+  outline:2px solid var(--acc-hi);
+  outline-offset:2px;
+}
+:focus:not(:focus-visible){ outline:none; }
+
+/* Scrollbars discrètes */
+*::-webkit-scrollbar{ width:9px; height:9px; }
+*::-webkit-scrollbar-track{ background:transparent; }
+*::-webkit-scrollbar-thumb{
+  background:var(--line);
+  border-radius:5px;
+}
+*::-webkit-scrollbar-thumb:hover{ background:#2e3849; }
+
+/* Respect des préférences système */
+@media (prefers-reduced-motion:reduce){
+  *{ animation-duration:.01ms !important;
+     transition-duration:.01ms !important; }
+}
