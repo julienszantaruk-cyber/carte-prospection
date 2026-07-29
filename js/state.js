@@ -26,12 +26,23 @@ export const S = {
   cluster  : true,
   cols     : COLS.filter(c => c.def).map(c => c.k),
 
-  /* Filtres */
+   /* Filtres — les multi-select portent des tableaux */
   f: {
-    q:'', type:'', status:'', relation:'', prio:'',
-    scoreMin:0, scoreMax:100,
-    region:'', city:'', tags:'',
-    fav:false, late:false
+    q        : '',
+    type     : [],      // flt-type     (multi)
+    status   : [],      // flt-status   (multi)
+    relation : [],      // flt-relation (multi)
+    prio     : [],      // flt-prio     (multi)
+    legal    : [],      // flt-legal    (multi)
+    model    : [],      // flt-model    (multi)
+    features : [],      // flt-features (multi)
+    scoreMin : 0,
+    scoreMax : 100,
+    city     : '',
+    country  : '',
+    tags     : '',
+    fav      : false,
+    late     : false
   }
 };
 
