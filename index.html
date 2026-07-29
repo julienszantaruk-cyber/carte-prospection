@@ -754,12 +754,8 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 
 /* ── helpers ── */
 const $ = id => document.getElementById(id);
-const esc = s => String(s == null ? "" : s)
-  .replace(/&/g,  "&")
-  .replace(/</g,  "<")
-  .replace(/>/g,  ">")
-  .replace(/"/g,  """)
-  .replace(/'/g,  "'");
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+  "&#" + c.charCodeAt(0) + ";");
 const isMobile = () => window.matchMedia("(max-width:860px)").matches;
 
 /* FIX #6 (p4) : bloque javascript: / data: dans les href utilisateur */
