@@ -24,6 +24,7 @@ export function toast(text, kind = ''){
 export const ok   = t => toast(t, 'ok');
 export const err  = t => toast(t, 'danger');
 export const warn = t => toast(t, 'warn');
+export const info = m => toast(m, 'info');
 
 /* ─── Confirmation modale ─── */
 let resolver = null;
