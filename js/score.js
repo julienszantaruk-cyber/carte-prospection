@@ -1,46 +1,39 @@
 /* ═══════════════════════════════════════════════════════
-   6 · SCORE — moyenne pondérée des notations
+   6 · SCORE — moyenne pondérée des notations → 0..100
    ═══════════════════════════════════════════════════════ */
 
 import { STARS_MAX } from './config.js';
 
 /**
- * Calcule le score sur 100.
- * ratings  : { criterionId: 1..5 }
- * criteria : [{ id, weight }]
- * Seuls les critères NOTÉS comptent → un lieu partiellement
- * évalué n'est pas pénalisé.
- * Retourne null si aucune notation.
+ * ratings : { criteriaKey: 1..STARS_MAX }
+ * crit    : [{ key, weight, ... }] (poids numeric, décimales OK)
+ * Retour  : 0..100 arrondi, ou null si aucune note exploitable.
+ *
+ * Seuls les critères notés comptent : noter 2 critères sur 6
+ * ne pénalise pas le score, ça le rend juste moins fiable.
  */
-export function computeScore(ratings, criteria){
-  if (!ratings || !criteria?.length) return null;
+export function computeScore(ratings, crit){
+  if (!ratings || typeof ratings !== 'object') return null;
+  if (!Array.isArray(crit) || crit.length === 0) return null;
 
-  let sum = 0, weights = 0;
+  let sum = 0, wsum = 0;
 
-  for (const c of criteria){
-    const r = ratings[c.id];
-    if (!r || r <= 0) continue;
-    const w = Number(c.weight) || 1;
-    sum     += (r / STARS_MAX) * w;
-    weights += w;
+  for (const c of crit){
+    const n = Number(ratings[c.key]);
+    if (!Number.isFinite(n) || n <= 0) continue;
+    const w = Number(c.weight);
+    const weight = Number.isFinite(w) && w > 0 ? w : 1;
+    sum  += (n / STARS_MAX) * weight;
+    wsum += weight;
   }
 
-  if (weights === 0) return null;
-  return Math.round((sum / weights) * 100);
+  if (wsum === 0) return null;
+  return Math.round((sum / wsum) * 100);
 }
 
-/** Nombre de critères notés / total */
-export function scoreCoverage(ratings, criteria){
-  if (!criteria?.length) return { done:0, total:0 };
-  const done = criteria.filter(c => (ratings?.[c.id] ?? 0) > 0).length;
-  return { done, total: criteria.length };
-}
-
-/** Classe CSS de badge selon le score */
-export function scoreBadge(score){
-  if (score === null || score === undefined) return 'badge-dim';
-  if (score >= 75) return 'badge-ok';
-  if (score >= 50) return 'badge-acc';
-  if (score >= 25) return 'badge-warn';
-  return 'badge-danger';
+/** Nombre de critères notés / total — pour afficher la fiabilité */
+export function coverage(ratings, crit){
+  if (!Array.isArray(crit) || crit.length === 0) return { done:0, total:0 };
+  const done = crit.filter(c => Number(ratings?.[c.key]) > 0).length;
+  return { done, total: crit.length };
 }
