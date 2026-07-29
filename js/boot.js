@@ -113,16 +113,14 @@ async function start(user){
     return;
   }
 
-  // Carte : on l'initialise une seule fois
-  if (!S.mapReady){
-    map.initMap(openPlace);
-    map.bindZoom();
-    S.mapReady = true;
-  }
+setTab(S.tab || 'map');          // ← visible d'abord
 
-  // Restauration de l'onglet mémorisé
-  setTab(S.tab || 'map');
-  map.fit();
+if (!S.mapReady){
+  map.initMap(openPlace);
+  map.bindZoom();
+  S.mapReady = true;
+}
+map.fit();
 
   const n = S.places.length;
   if (n === 0) toast('Base vide — appuie sur « N » pour créer ton premier lieu.', 'ok');
