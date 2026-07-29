@@ -211,6 +211,8 @@ export function fillSelect(id, opts, { placeholder = null } = {}) {
   }
 }
 
-export const esc = s => String(s ?? '')
-  .replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
-  .replace(/"/g, '"').replace(/'/g, ''');
+const _d = document.createElement('div');
+export const esc = s => {
+  _d.textContent = String(s ?? '');
+  return _d.innerHTML;
+};
