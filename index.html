@@ -436,29 +436,47 @@ select.inp{cursor:pointer;appearance:none;
   <div id="side">
     <div id="sheetgrab"><span class="bar"></span><div class="ttl" id="grab-ttl">Glisse pour voir la liste</div></div>
     <div class="sec">
-      <div class="searchwrap" id="swrap">
-        <span class="ic">🔍</span>
-        <input class="inp" id="q" placeholder="Rechercher un lieu..." autocomplete="off">
-        <button class="clr" id="q-clr">×</button>
+  <div class="searchwrap" id="swrap">
+    <span class="ic">🔍</span>
+    <input class="inp" id="q" placeholder="Rechercher un lieu..." autocomplete="off">
+    <button class="clr" id="q-clr">×</button>
+  </div>
+</div>
+
+<!-- ═══ FILTRES REPLIABLES ═══ -->
+<div class="sec fsec">
+  <button class="fbtn" id="f-toggle">
+    <span class="fbtn-l">⚙️ Filtres <span class="fbadge" id="f-badge">0</span></span>
+    <span class="fbtn-r">
+      <span class="linkmini" id="f-reset">Effacer</span>
+      <span class="carret">▾</span>
+    </span>
+  </button>
+
+  <div class="fpills" id="f-pills"></div>
+
+  <div class="fpanel" id="f-panel">
+    <div class="fpanel-in">
+      <div class="fgrp">
+        <div class="sec-t">Types <span class="linkmini" id="f-types-all">tout</span></div>
+        <div class="chips" id="f-types"></div>
+      </div>
+      <div class="fgrp">
+        <div class="sec-t">Statut <span class="linkmini" id="f-stat-all">tout</span></div>
+        <div class="chips" id="f-stat"></div>
+      </div>
+      <div class="fgrp">
+        <div class="sec-t">Priorité <span class="linkmini" id="f-prio-all">tout</span></div>
+        <div class="chips" id="f-prio"></div>
       </div>
     </div>
-    <div class="sec">
-      <div class="sec-t">Types <span class="linkmini" id="f-types-all">tout</span></div>
-      <div class="chips" id="f-types"></div>
-    </div>
-    <div class="sec">
-      <div class="sec-t">Statut <span class="linkmini" id="f-stat-all">tout</span></div>
-      <div class="chips" id="f-stat"></div>
-    </div>
-    <div class="sec">
-      <div class="sec-t">Priorité <span class="linkmini" id="f-prio-all">tout</span></div>
-      <div class="chips" id="f-prio"></div>
-    </div>
-    <div class="sec">
-      <div class="sec-t"><span id="cnt">0 lieu</span><span class="linkmini" id="sort-tog">Trier : récents</span></div>
-      <div id="list"></div>
-    </div>
   </div>
+</div>
+
+<div class="sec">
+  <div class="sec-t listhead"><span id="cnt">0 lieu</span><span class="linkmini" id="sort-tog">Trier : récents</span></div>
+  <div id="list"></div>
+</div>
 
   <div id="mapwrap">
     <div id="map"></div>
@@ -610,6 +628,52 @@ select.inp{cursor:pointer;appearance:none;
 </div>
 
 <div id="toast"></div>
+
+  /* ═══ FILTRES REPLIABLES ═══ */
+.fsec{margin-bottom:14px!important}
+.fbtn{width:100%;display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:10px 12px;border:1.5px solid var(--line);border-radius:11px;
+  background:#fff;cursor:pointer;font-size:13px;font-weight:700;color:var(--ink2);
+  min-height:42px;transition:.16s var(--ease)}
+.fbtn:hover{border-color:#c7d2fe;background:#fafbff}
+.fbtn:active{transform:scale(.98)}
+.fbtn-l,.fbtn-r{display:flex;align-items:center;gap:8px}
+.fbadge{background:var(--brand);color:#fff;font-size:10.5px;font-weight:800;
+  min-width:19px;height:19px;border-radius:10px;display:none;
+  align-items:center;justify-content:center;padding:0 5px}
+.fsec.active .fbadge{display:inline-flex}
+.fsec.active .fbtn{border-color:var(--brand);background:var(--brandsoft);color:#4338ca}
+.fbtn .linkmini{margin:0;font-size:11px;display:none}
+.fsec.active .fbtn .linkmini{display:inline}
+.carret{font-size:11px;opacity:.55;transition:transform .28s var(--ease)}
+.fsec.open .carret{transform:rotate(180deg)}
+
+.fpanel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s var(--ease);
+  overflow:hidden}
+.fsec.open .fpanel{grid-template-rows:1fr}
+.fpanel-in{min-height:0;overflow:hidden;padding-top:12px}
+.fgrp{margin-bottom:14px}
+.fgrp:last-child{margin-bottom:2px}
+
+.fpills{display:flex;flex-wrap:wrap;gap:5px}
+.fsec.active .fpills{margin-top:9px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:5px 8px 5px 9px;
+  border-radius:20px;background:var(--brandsoft);border:1px solid #c7d2fe;
+  font-size:11.5px;font-weight:650;color:#4338ca;cursor:pointer;
+  transition:.14s var(--ease);line-height:1}
+.pill:hover{background:#e0e7ff}
+.pill:active{transform:scale(.94)}
+.pill i{width:7px;height:7px;border-radius:50%;flex:none;font-style:normal}
+.pill b{font-size:13px;opacity:.5;font-weight:700;line-height:1}
+.pill:hover b{opacity:1;color:var(--danger)}
+
+.listhead{position:sticky;top:0;background:var(--card);z-index:4;
+  padding:2px 0 8px;margin-bottom:2px}
+
+@media(max-width:860px){
+  .listhead{top:0;background:#fff}
+  .fpanel-in{padding-top:10px}
+}
 
 <script>
 /* ============ CONFIG ============ */
@@ -873,6 +937,7 @@ async function boot() {
   await loadTypes();                              // les types d'abord (insert par défaut si vide)
   await Promise.all([loadPlaces(), loadNotes()]); // puis en parallèle
   buildFilters();
+  syncFilterUI();
   render();
   if (isMobile()) setView("map");
   setTimeout(() => map.invalidateSize(), 120);
@@ -906,13 +971,14 @@ function chip(on, color, label, n, onclick) {
   b.onclick = onclick;
   return b;
 }
+
 function buildFilters() {
   const ct = $("f-types"); ct.innerHTML = "";
   TYPES.forEach(t => {
     const n = PLACES.filter(p => p.type_id === t.id).length;
     ct.appendChild(chip(F.types.has(t.id), t.color, t.emoji + " " + esc(t.label), n, () => {
       F.types.has(t.id) ? F.types.delete(t.id) : F.types.add(t.id);
-      buildFilters(); render();
+      buildFilters(); syncFilterUI(); render();  // 👈 AJOUT : syncFilterUI()
     }));
   });
   const cs = $("f-stat"); cs.innerHTML = "";
@@ -920,7 +986,7 @@ function buildFilters() {
     const n = PLACES.filter(p => (p.status || "todo") === k).length;
     cs.appendChild(chip(F.stat.has(k), STATUS[k].color, esc(STATUS[k].label), n, () => {
       F.stat.has(k) ? F.stat.delete(k) : F.stat.add(k);
-      buildFilters(); render();
+      buildFilters(); syncFilterUI(); render();  // 👈 AJOUT : syncFilterUI()
     }));
   });
   const cp = $("f-prio"); cp.innerHTML = "";
@@ -928,13 +994,15 @@ function buildFilters() {
     const n = PLACES.filter(p => (p.prio || "mid") === k).length;
     cp.appendChild(chip(F.prio.has(k), PRIO[k].color, esc(PRIO[k].label), n, () => {
       F.prio.has(k) ? F.prio.delete(k) : F.prio.add(k);
-      buildFilters(); render();
+      buildFilters(); syncFilterUI(); render();  // 👈 AJOUT : syncFilterUI()
     }));
   });
 }
-$("f-types-all").onclick = () => { F.types.clear(); buildFilters(); render(); };
-$("f-stat-all").onclick  = () => { F.stat.clear();  buildFilters(); render(); };
-$("f-prio-all").onclick  = () => { F.prio.clear();  buildFilters(); render(); };
+
+$("f-types-all").onclick = () => { F.types.clear(); buildFilters(); syncFilterUI(); render(); };
+$("f-stat-all").onclick  = () => { F.stat.clear();  buildFilters(); syncFilterUI(); render(); };
+$("f-prio-all").onclick  = () => { F.prio.clear();  buildFilters(); syncFilterUI(); render(); };
+
 $("q").oninput = e => {
   F.q = e.target.value.toLowerCase().trim();
   $("swrap").classList.toggle("has", !!e.target.value);
@@ -944,10 +1012,50 @@ $("q-clr").onclick = () => {
   $("q").value = ""; F.q = ""; $("swrap").classList.remove("has"); render(); $("q").focus();
 };
 
+/* ═══ FILTRES REPLIABLES ═══ */
+const fsec = () => document.querySelector('.fsec');
+
+function activeCount() { return F.types.size + F.stat.size + F.prio.size; }
+
+function syncFilterUI() {
+  const n = activeCount(), s = fsec();
+  $('f-badge').textContent = n;
+  s.classList.toggle('active', n > 0);
+  renderPills();
+}
+
+function renderPills() {
+  const box = $('f-pills');
+  box.innerHTML = '';
+  const add = (color, label, kill) => {
+    const b = document.createElement('button');
+    b.className = 'pill';
+    b.innerHTML = '<i style="background:' + color + '"></i>' + label + '<b>×</b>';
+    b.onclick = e => { e.stopPropagation(); kill(); buildFilters(); syncFilterUI(); render(); };
+    box.appendChild(b);
+  };
+  F.types.forEach(id => {
+    const t = TYPES.find(x => x.id === id); if (!t) return;
+    add(t.color, t.emoji + ' ' + esc(t.label), () => F.types.delete(id));
+  });
+  F.stat.forEach(k => add(STATUS[k].color, esc(STATUS[k].label), () => F.stat.delete(k)));
+  F.prio.forEach(k => add(PRIO[k].color, esc(PRIO[k].label), () => F.prio.delete(k)));
+}
+
+$('f-toggle').onclick = () => fsec().classList.toggle('open');
+
+$('f-reset').onclick = e => {
+  e.stopPropagation();
+  F.types.clear(); F.stat.clear(); F.prio.clear();
+  buildFilters(); syncFilterUI(); render();
+  toast('Filtres réinitialisés');
+};
+
 function syncSortLabel() {
   const lbl = { recent: "Trier : récents", dist: "Trier : distance", name: "Trier : A→Z" };
   $("sort-tog").textContent = lbl[sortMode];
 }
+
 $("sort-tog").onclick = () => {
   const order = ME ? ["recent", "dist", "name"] : ["recent", "name"];
   sortMode = order[(order.indexOf(sortMode) + 1) % order.length];
