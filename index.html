@@ -508,7 +508,22 @@ body.placing-cursor, body.placing-cursor #map{ cursor:crosshair !important; }
   background:#fff;font-size:12px;cursor:pointer;transition:.15s
 }
 .fmode button.on{background:#2563eb;border-color:#2563eb;color:#fff}
-  
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:7px 11px;border-radius:999px;cursor:pointer;
+  font:inherit;font-size:13px;
+  border:1.5px solid #d0d5dd;background:#fff;color:#475467;
+  transition:all .12s;
+}
+.chips button:hover{border-color:#98a2b3}
+.chips button.on{
+  border-color:var(--c,#3b82f6);
+  background:color-mix(in srgb,var(--c,#3b82f6) 14%,#fff);
+  color:#101828;font-weight:600;
+}
+
 </style>
 </head>
 <body>
@@ -644,7 +659,7 @@ body.placing-cursor, body.placing-cursor #map{ cursor:crosshair !important; }
         <input class="inp" id="p-name" placeholder="Château de Chambord" required>
       </div>
       <div class="row">
-        <div class="fld"><label for="p-type">Type</label><select class="inp" id="p-type"></select></div>
+        <div class="fld"><label>Types</label><div id="p-types" class="chips"></div></div>
         <div class="fld"><label for="p-status">Statut</label><select class="inp" id="p-status"></select></div>
       </div>
       <div class="row">
@@ -1467,6 +1482,24 @@ function fillSelects() {
     .map(k => '<option value="' + k + '"' + (k === "mid" ? " selected" : "") + '>' + esc(PRIO[k].label) + '</option>').join("");
 }
 
+function renderTypePicker(selected) {
+  const sel = new Set((selected || []).map(String));
+  const box = $("p-types");
+  box.innerHTML = TYPES.map(t =>
+    '<button type="button" data-tid="' + esc(t.id) + '"' +
+    ' style="--c:' + esc(t.color || "#3b82f6") + '"' +
+    (sel.has(String(t.id)) ? ' class="on"' : '') + '>' +
+    (t.emoji || "") + " " + esc(t.label || "") + '</button>'
+  ).join("");
+  box.querySelectorAll("[data-tid]").forEach(b => {
+    b.onclick = () => b.classList.toggle("on");
+  });
+}
+
+function pickedTypes() {
+  return [...$("p-types").querySelectorAll("button.on")].map(b => b.dataset.tid);
+}
+
 function openPlace(id, lat, lng) {
   fillSelects();
   editId = id || null;
@@ -1475,7 +1508,10 @@ function openPlace(id, lat, lng) {
    $ ("p-del").style.display = p ? "inline-flex" : "none";
   setMsg( $ ("p-err"), ""); setMsg($("p-geoerr"), "");
     $("p-name").value    = p ? (p.name || "") : "";
-  $("p-type").value    = p && p.type_id ? p.type_id : (TYPES[0] ? TYPES[0].id : "");
+renderTypePicker(
+  p ? (p.type_ids && p.type_ids.length ? p.type_ids : (p.type_id ? [p.type_id] : []))
+    : (TYPES[0] ? [TYPES[0].id] : [])
+);
   $("p-status").value  = p ? (p.status || "todo") : "todo";
   $("p-prio").value    = p ? (p.prio || "mid") : "mid";
   $("p-rdv").value     = p ? (p.rdv_date || "") : "";
@@ -1536,7 +1572,8 @@ async function savePlace() {
 
   const rec = {
     name: name,
-    type_id: $("p-type").value || null,
+    type_ids: pickedTypes(),
+type_id: pickedTypes()[0] || null,
     status: $("p-status").value,
     prio: $("p-prio").value,
     rdv_date: $("p-rdv").value || null,
