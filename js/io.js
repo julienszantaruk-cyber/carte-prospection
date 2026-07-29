@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════════ */
 
 import { S, typeById } from './state.js';
-import { EL, on } from './dom.js';
+import { EL, on, getVal } from './dom.js';
 import { COLS } from './config.js';
 import * as data from './data.js';
 import { ok, err, warn, confirmBox } from './toast.js';
@@ -23,6 +23,11 @@ function download(filename, content, mime){
 
 const stamp = () => new Date().toISOString().slice(0, 10);
 
+/* Quelles lignes exporter ? 'view' = filtrées, 'all' = tout */
+function rowsForScope(){
+  return getVal('m-io-scope') === 'all' ? S.places : S.view;
+}
+
 /* ─── Export CSV ─── */
 function csvCell(v){
   if (v === null || v === undefined) return '';
@@ -30,8 +35,7 @@ function csvCell(v){
   return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
-function exportCsv(){
-  const rows = S.view;
+function exportCsv(rows){
   if (!rows.length) return warn('Rien à exporter (filtre trop restrictif ?).');
 
   const keys = COLS.map(c => c.k);
@@ -48,17 +52,40 @@ function exportCsv(){
 }
 
 /* ─── Export JSON complet ─── */
-function exportJson(){
+function exportJson(rows){
   const payload = {
     format  : 'prospection-v1',
     exported: new Date().toISOString(),
     types   : S.types,
     criteria: S.crit,
-    places  : S.places
+    places  : rows
   };
   download(`prospection-${stamp()}.json`,
            JSON.stringify(payload, null, 2), 'application/json');
-  ok(`${S.places.length} lieu(x) exporté(s) en JSON`);
+  ok(`${rows.length} lieu(x) exporté(s) en JSON`);
+}
+
+/* ─── Dispatch export ─── */
+function runExport(){
+  const rows = rowsForScope();
+  const fmt  = getVal('m-io-format') || 'csv';
+  if (fmt === 'json') exportJson(rows);
+  else                exportCsv(rows);
+}
+
+/* Aperçu dans la modale */
+function updatePreview(){
+  const el = EL['ui-io-preview'];
+  if (!el) return;
+  const n   = rowsForScope().length;
+  const fmt = (getVal('m-io-format') || 'csv').toUpperCase();
+  el.textContent = `${n} lieu(x) · format ${fmt} · fichier prospection-${stamp()}` +
+                   (fmt === 'CSV' ? '.csv' : '.json');
+}
+
+function report(text){
+  const el = EL['ui-io-report'];
+  if (el) el.textContent = text || '';
 }
 
 /* ─── Import JSON ─── */
@@ -67,15 +94,17 @@ async function importJson(file){
   try{
     payload = JSON.parse(await file.text());
   }catch(e){
+    report('Fichier JSON illisible.');
     return err('Fichier JSON illisible.');
   }
 
   if (payload.format !== 'prospection-v1'){
+    report('Format non reconnu.');
     return err('Format non reconnu (attendu : prospection-v1).');
   }
 
-  const nPlaces = (payload.places || []).length;
-  const nTypes  = (payload.types  || []).length;
+  const nPlaces = (payload.places   || []).length;
+  const nTypes  = (payload.types    || []).length;
   const nCrit   = (payload.criteria || []).length;
 
   const go = await confirmBox(
@@ -86,8 +115,9 @@ async function importJson(file){
   if (!go) return;
 
   let done = 0, failed = 0;
+  report('Import en cours…');
 
-  /* 1. Types — on garde une table de correspondance ancien id → nouveau id */
+  /* 1. Types — table de correspondance ancien id → nouveau id */
   const typeMap = new Map();
   for (const t of (payload.types || [])){
     try{
@@ -136,7 +166,9 @@ async function importJson(file){
 
   await afterImport();
 
-  if (failed) warn(`${done} importé(s), ${failed} en échec (voir console).`);
+  const msg = `${done} importé(s)` + (failed ? `, ${failed} en échec (voir console).` : '.');
+  report(msg);
+  if (failed) warn(msg);
   else        ok(`${done} lieu(x) importé(s).`);
 }
 
@@ -144,14 +176,41 @@ async function importJson(file){
 export function initIo(onImport){
   afterImport = onImport || afterImport;
 
-  on('top-btn-csv',  'click', exportCsv);
-  on('top-btn-json', 'click', exportJson);
+  /* Ouverture de la modale */
+  on('btn-io', 'click', () => {
+    if (EL['m-io']) EL['m-io'].hidden = false;
+    report('');
+    updatePreview();
+  });
 
-  on('top-btn-import', 'click', () => EL['io-file']?.click());
+  /* Fermeture : fond + [data-close] */
+  EL['m-io']?.addEventListener('click', (e) => {
+    if (e.target === EL['m-io'] || e.target.closest('[data-close]')){
+      EL['m-io'].hidden = true;
+    }
+  });
 
-  on('io-file', 'change', async (e) => {
+  /* Aperçu réactif */
+  on('m-io-format', 'change', updatePreview);
+  on('m-io-scope',  'change', updatePreview);
+
+  /* Export */
+  on('btn-export', 'click', runExport);
+
+  /* Import */
+  on('btn-import',      'click',  () => EL['m-io-file']?.click());
+  on('btn-import-file', 'click',  () => EL['m-io-file']?.click());
+
+  on('m-io-file', 'change', async (e) => {
     const file = e.target.files?.[0];
     if (file) await importJson(file);
     e.target.value = '';   // permet de réimporter le même fichier
+  });
+
+  /* Échap */
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && EL['m-io'] && !EL['m-io'].hidden){
+      EL['m-io'].hidden = true;
+    }
   });
 }
