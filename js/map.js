@@ -5,11 +5,12 @@
 import { MAP } from './config.js';
 import { S, typeById } from './state.js';
 import { EL, on, esc } from './dom.js';
-import { scoreBadge } from './score.js';
 
 let map = null;
 let layer = null;
 let openCb = () => {};
+let pickMode = false;
+let pickCb = null;
 
 export function initMap(onOpen){
   openCb = onOpen || openCb;
@@ -21,26 +22,54 @@ export function initMap(onOpen){
     attributionControl: true
   });
 
-  L.tileLayer(MAP.tiles, {
-    attribution: MAP.attrib,
-    maxZoom: MAP.maxZoom
+  // Fond clair CARTO Positron — les marqueurs colorés ressortent
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &middot; &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20
   }).addTo(map);
 
   layer = L.layerGroup().addTo(map);
 
-  on('map-btn-fit', 'click', fit);
-  on('map-btn-cluster', 'click', () => {
-    S.cluster = !S.cluster;
-    EL['map-btn-cluster'].classList.toggle('is-on', S.cluster);
-    render();
+  on('btn-fit',    'click', fit);
+  on('btn-locate', 'click', locate);
+  on('btn-pick',   'click', () => togglePick());
+
+  map.on('click', (e) => {
+    if (!pickMode) return;
+    const { lat, lng } = e.latlng;
+    togglePick(false);
+    pickCb?.(+lat.toFixed(6), +lng.toFixed(6));
   });
 
-  // Leaflet a besoin d'un recalcul quand l'onglet devient visible
   window.addEventListener('resize', () => map?.invalidateSize());
 }
 
 export function refreshSize(){
   setTimeout(() => map?.invalidateSize(), 60);
+}
+
+/* ─── Mode pointage ─── */
+export function togglePick(force){
+  pickMode = (force === undefined) ? !pickMode : !!force;
+  EL['btn-pick']?.classList.toggle('is-active', pickMode);
+  EL['ui-map']?.classList.toggle('is-picking', pickMode);
+}
+
+/** Appelé par sheet.js : demande une coordonnée à l'utilisateur */
+export function startPick(cb){
+  pickCb = cb;
+  togglePick(true);
+}
+
+/* ─── Géolocalisation ─── */
+function locate(){
+  if (!navigator.geolocation || !map) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => map.setView([pos.coords.latitude, pos.coords.longitude], 13),
+    ()    => {},
+    { timeout: 8000 }
+  );
 }
 
 /* ─── Marqueur HTML pur ─── */
@@ -62,15 +91,15 @@ function pinIcon(p){
 
 function popupHtml(p){
   const t = typeById(p.type_id);
-  const sc = p.score ?? null;
+  const sc = Number.isFinite(p.score) ? p.score : null;
   return `
-    <div class="popup-name">${esc(p.name)}</div>
+    <div class="popup-name">${esc(p.name || '(sans nom)')}</div>
     <div class="popup-meta">
       ${t ? esc(t.emoji + ' ' + t.label) : ''}
       ${p.city ? ' · ' + esc(p.city) : ''}
       ${sc !== null ? ` · <b>${sc}</b>/100` : ''}
     </div>
-    <button class="popup-btn" data-open="${p.id}">Ouvrir la fiche</button>
+    <button class="popup-btn" data-open="${esc(String(p.id))}">Ouvrir la fiche</button>
   `;
 }
 
@@ -163,7 +192,15 @@ export function focusOn(id){
   map.setView([p.lat, p.lng], MAP.zoomOne, { animate:true });
 }
 
+/** Bornes actuelles — pour le filtre « dans la vue » */
+export function currentBounds(){
+  return map?.getBounds() || null;
+}
+
 /* Re-cluster au zoom */
 export function bindZoom(){
   map?.on('zoomend', render);
+  map?.on('moveend', () => {
+    if (S.flt?.inView) window.dispatchEvent(new Event('app:rerender'));
+  });
 }
