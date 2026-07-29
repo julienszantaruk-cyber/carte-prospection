@@ -106,7 +106,7 @@ function initKeys(){
     }
     // Ctrl/Cmd + S → enregistrer si la fiche est ouverte
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's'){
-      const sh = EL['sheet'];
+      const sh = EL['ui-sheet'];
       if (sh && !sh.hidden){
         e.preventDefault();
         EL['btn-save']?.click();
@@ -166,7 +166,7 @@ async function stop(){
    BOOT
    ───────────────────────────────────────────── */
 async function boot(){
-  if (!assertDom()){
+   if (assertDom().length){
     console.warn('[boot] DOM incomplet — certaines fonctions seront inertes');
   }
 
