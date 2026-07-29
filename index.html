@@ -1609,6 +1609,16 @@ table.bt .cellbtn{cursor:pointer}
   outline-offset:2px;
 }
 .btn:focus-visible,.chip:focus-visible,.mc:focus-visible{outline-offset:1px}
+
+.lg-empty{font-size:13px;color:#888;padding:8px 0}
+.lg-it{background:#f7f7f9;border:1px solid #e2e2e8;border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.lg-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.lg-date{font-size:11px;color:#888}
+.flex1{flex:1}
+.lg-del{background:none;border:0;color:#888;cursor:pointer;font-size:14px;padding:2px 4px}
+.lg-del:hover{color:#c00}
+.lg-txt{font-size:13px;white-space:pre-wrap;word-break:break-word}
+   
 </style>
 </head>
 
@@ -3541,8 +3551,12 @@ $("#sh-del").onclick = async () => {
    15 · JOURNAL DE SUIVI
    ═══════════════════════════════════════════════════════════ */
 
+/* ===== JOURNAL DE PROSPECTION ===== */
+
 function renderLogs(placeId) {
-  const box  = $("i-logbox");
+  const box = $("i-logs");
+  if (!box) return;
+
   const list = S.logs[placeId] || [];
 
   if (!list.length) {
@@ -3553,7 +3567,6 @@ function renderLogs(placeId) {
   box.innerHTML = list.map(e => `
     <div class="lg-it">
       <div class="lg-top">
-        <span class="lg-kind k-${esc(e.kind || "note")}">${esc(e.kind || "note")}</span>
         <span class="lg-date">${fmtDate(e.created_at)}</span>
         <span class="flex1"></span>
         <button class="lg-del" data-id="${esc(e.id)}" type="button" title="Supprimer">✕</button>
@@ -3562,8 +3575,8 @@ function renderLogs(placeId) {
     </div>`).join("");
 }
 
-/* Suppression — délégation posée une fois sur le conteneur */
-$("i-logbox").addEventListener("click", async ev => {
+/* Suppression d'une entrée */
+document.addEventListener("click", async ev => {
   const btn = ev.target.closest(".lg-del");
   if (!btn) return;
 
@@ -3579,26 +3592,23 @@ $("i-logbox").addEventListener("click", async ev => {
   toast("Entrée supprimée ✓", "good");
 });
 
-/* Ajout */
-$("i-logadd").onclick = async () => {
+/* Ajout d'une entrée */
+document.addEventListener("click", async ev => {
+  if (!ev.target.closest("#i-addlog")) return;
   if (!S.sel) { toast("Enregistre d’abord le lieu.", "bad"); return; }
 
-  const ta   = $("i-logbody");
+  const ta = $("i-newlog");
   const body = ta.value.trim();
   if (!body) { ta.focus(); return; }
 
-  const btn = $("i-logadd");
+  const btn = $("i-addlog");
   btn.disabled = true;
 
-  const row = {
+  const { data, error } = await sb.from("place_logs").insert({
     place_id: S.sel,
     user_id:  S.user.id,
-    kind:     $("i-logkind").value,
-    body:     body.slice(0, 3000)
-  };
-
-  const { data, error } = await sb
-    .from("place_logs").insert(row).select().single();
+    body:     body.slice(0, 2000)
+  }).select().single();
 
   btn.disabled = false;
   if (error) { toast("Erreur : " + error.message, "bad"); return; }
@@ -3607,7 +3617,7 @@ $("i-logadd").onclick = async () => {
   ta.value = "";
   renderLogs(S.sel);
   toast("Entrée ajoutée ✓", "good");
-};
+});
 
 /* ═══════════════════════════════════════════════════════════
    16 · DASHBOARD
