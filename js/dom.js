@@ -216,3 +216,12 @@ export const esc = s => {
   _d.textContent = String(s ?? '');
   return _d.innerHTML;
 };
+
+/* ─── Alias de compatibilité ───
+   L'API canonique reste setText / val / multiVal.
+   Ces alias existent parce que les modules consommateurs
+   (auth.js, sheet.js, io.js…) utilisent l'autre vocabulaire.
+   Ne pas en ajouter de nouveaux : converger vers le canon. */
+export const setTxt = setText;
+export const getVal = id => val(id);
+export const setVal = (id, v) => val(id, v);
