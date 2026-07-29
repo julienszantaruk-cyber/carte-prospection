@@ -5,12 +5,7 @@
 import { MAP } from './config.js';
 import { S, typeById } from './state.js';
 import { EL, on, esc } from './dom.js';
-import { isPicking, applyPickedCoords } from './sheet.js';
 
-map.on('click', e => {
-  if (isPicking()) { applyPickedCoords(e.latlng.lat, e.latlng.lng); return; }
-  // …comportement normal
-});
 
 let map = null;
 let layer = null;
@@ -41,12 +36,12 @@ export function initMap(onOpen){
   on('btn-locate', 'click', locate);
   on('btn-pick',   'click', () => togglePick());
 
-  map.on('click', (e) => {
-    if (!pickMode) return;
-    const { lat, lng } = e.latlng;
-    togglePick(false);
-    pickCb?.(+lat.toFixed(6), +lng.toFixed(6));
-  });
+  import { isPicking, applyPickedCoords } from './sheet.js';
+
+map.on('click', e => {
+  if (isPicking()) { applyPickedCoords(e.latlng.lat, e.latlng.lng); return; }
+  // …comportement normal
+});
 
   window.addEventListener('resize', () => map?.invalidateSize());
 }
