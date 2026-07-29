@@ -1200,32 +1200,6 @@ $("placing-x").onclick = cancelPlacing;
 $("btn-add-top").onclick = startPlacing;
 $("fab-add").onclick = startPlacing;
 
-// ── Filet de sécurité : lit les colonnes réelles de la table ──
-async function loadPlaceCols(){
-  const { data } = await sb.from('places').select('*').limit(1);
-  if (data && data.length) {
-    PLACE_COLS = Object.keys(data[0]);
-    console.log('✅ Colonnes détectées en base :', PLACE_COLS);
-  } else {
-    console.log('ℹ️ Table places vide, filet inactif');
-  }
-}
-
-// ── Retire du payload les champs qui n'existent pas en base ──
-function sanitize(payload){
-  if (!PLACE_COLS) return payload;
-  const clean = {};
-  const dropped = [];
-  Object.keys(payload).forEach(k => {
-    if (PLACE_COLS.includes(k)) clean[k] = payload[k];
-    else dropped.push(k);
-  });
-  if (dropped.length) {
-    console.warn('⚠️ Colonnes absentes en base, ignorées :', dropped);
-  }
-  return clean;
-}
-
 async function savePlace() {
   const name = $("p-name").value.trim();
   if (!name) {  $ ("p-err").textContent = "Le nom est obligatoire."; return; }
@@ -1259,6 +1233,37 @@ async function savePlace() {
   
 // Charge la liste des colonnes réelles dès le démarrage
 loadPlaceCols();
+
+/* ═══ FILET DE SÉCURITÉ ═══ */
+let PLACE_COLS = null;
+
+async function loadPlaceCols(){
+  const r = await sb.from('places').select('*').limit(1);
+  if (r.error) {
+    console.error('❌ Lecture impossible :', r.error.message, r.error.code);
+    return;
+  }
+  if (r.data && r.data.length) {
+    PLACE_COLS = Object.keys(r.data[0]);
+    console.log('✅ Colonnes en base :', PLACE_COLS.join(', '));
+  } else {
+    console.log('ℹ️ Table vide → filet inactif, ajoute un lieu à la main d\'abord');
+  }
+}
+
+function sanitize(payload){
+  if (!PLACE_COLS) return payload;
+  const clean = {}, dropped = [];
+  Object.keys(payload).forEach(k => {
+    if (PLACE_COLS.includes(k)) clean[k] = payload[k];
+    else dropped.push(k);
+  });
+  if (dropped.length) console.warn('⚠️ IGNORÉES (à créer en SQL) :', dropped.join(', '));
+  return clean;
+}
+
+loadPlaceCols();
+/* ═══ FIN DU FILET ═══ */  
   
 $("p-save").onclick = savePlace;
 
