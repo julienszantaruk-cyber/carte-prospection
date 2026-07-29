@@ -113,7 +113,12 @@ export function fillSelect(id, items, { empty=null, keep=false } = {}){
 
 /** Échappe le HTML — à utiliser partout où on injecte du texte. */
 export function esc(s){
-  return String(s ?? '').replace(/[&<>"']/g, c => ({
-    '&':'&','<':'<','>':'>','"':'"',"'":'''
-  }[c]));
+  const MAP = {
+    '\u0026': '\u0026amp;',    //  &  →  &
+    '\u003C': '\u0026lt;',     //  <  →  <
+    '\u003E': '\u0026gt;',     //  >  →  >
+    '\u0022': '\u0026quot;',   //  "  →  "
+    '\u0027': '\u0026#39;'     //  '  →  '
+  };
+  return String(s ?? '').replace(/[\u0026\u003C\u003E\u0022\u0027]/g, c => MAP[c]);
 }
