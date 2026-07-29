@@ -188,13 +188,13 @@ async function boot(){
   on('btn-new', 'click', () => openPlace(null));
 
   // Modules dépendant des données
-  filt.initFilters(render);
-  list.initList(openPlace);
-  table.initTable(openPlace);
-  dash.initDash(openPlace);
-  sheet.initSheet(reload);
-  sets.initSettings(reload);
-  io.initIo(reload);
+safe('filters',  () => filt.initFilters(render));
+  safe('list',     () => list.initList(openPlace));
+  safe('table',    () => table.initTable(openPlace));
+  safe('dash',     () => dash.initDash(openPlace));
+  safe('sheet',    () => sheet.initSheet(reload));
+  safe('settings', () => sets.initSettings(reload));
+  safe('io',       () => io.initIo(reload));
 
   // Auth en dernier : c'est lui qui déclenche start()
   auth.initAuth({ onLogin: start, onLogout: stop });
