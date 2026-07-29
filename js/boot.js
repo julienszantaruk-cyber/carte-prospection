@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════════ */
 
 import { S, loadLocal, saveLocal } from './state.js';
-import { EL, cacheDom, assertDom, on, setTxt } from './dom.js';
+import { EL, assertDom, on, setTxt } from './dom.js';
 import * as auth   from './auth.js';
 import * as data   from './data.js';
 import * as filt   from './filters.js';
@@ -141,11 +141,9 @@ async function stop(){
    BOOT
    ───────────────────────────────────────────── */
 async function boot(){
-  cacheDom();
-
-  const missing = assertDom();
-  if (missing.length){
-    console.warn('[DOM] ids absents de index.html :', missing);
+  if (!assertDom()) {
+    // ids manquants : on log déjà en rouge, on continue en mode dégradé
+    console.warn('[boot] DOM incomplet — certaines fonctions seront inertes');
   }
 
   loadLocal();
