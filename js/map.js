@@ -5,6 +5,12 @@
 import { MAP } from './config.js';
 import { S, typeById } from './state.js';
 import { EL, on, esc } from './dom.js';
+import { isPicking, applyPickedCoords } from './sheet.js';
+
+map.on('click', e => {
+  if (isPicking()) { applyPickedCoords(e.latlng.lat, e.latlng.lng); return; }
+  // …comportement normal
+});
 
 let map = null;
 let layer = null;
