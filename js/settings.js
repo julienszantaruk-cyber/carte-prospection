@@ -10,12 +10,16 @@ import { ok, err, confirmBox } from './toast.js';
 
 let afterChange = () => {};
 
-const openMod  = id => { EL[id].hidden = false; };
-const closeMod = id => { EL[id].hidden = true;  };
+const MODALS = ['m-types', 'm-criteria', 'm-cols'];
+
+const openMod  = id => { if (EL[id]) EL[id].hidden = false; };
+const closeMod = id => { if (EL[id]) EL[id].hidden = true;  };
 
 /* ─── Types ─── */
 function renderTypes(){
-  EL['mod-types-list'].innerHTML = S.types.map(t => `
+  const box = EL['ui-types-list'];
+  if (!box) return;
+  box.innerHTML = S.types.map(t => `
     <div class="set-row" data-tid="${t.id}">
       <input class="set-emoji" value="${esc(t.emoji)}" maxlength="4" data-k="emoji">
       <input class="set-color" type="color" value="${esc(t.color)}" data-k="color">
@@ -31,6 +35,7 @@ async function typesAction(e){
   const btn = e.target.closest('[data-act]');
   if (!btn) return;
   const row = btn.closest('[data-tid]');
+  if (!row) return;
   const id  = row.dataset.tid;
 
   if (btn.dataset.act === 'del'){
@@ -54,7 +59,9 @@ async function typesAction(e){
 
 /* ─── Critères ─── */
 function renderCrit(){
-  EL['mod-crit-list'].innerHTML = S.crit.map(c => `
+  const box = EL['ui-criteria-list'];
+  if (!box) return;
+  box.innerHTML = S.crit.map(c => `
     <div class="set-row" data-cid="${c.id}">
       <input class="set-label" value="${esc(c.label)}" data-k="label">
       <input class="set-num" type="number" value="${c.weight}"
@@ -70,6 +77,7 @@ async function critAction(e){
   const btn = e.target.closest('[data-act]');
   if (!btn) return;
   const row = btn.closest('[data-cid]');
+  if (!row) return;
   const id  = row.dataset.cid;
 
   if (btn.dataset.act === 'del'){
@@ -93,7 +101,9 @@ async function critAction(e){
 
 /* ─── Colonnes ─── */
 function renderCols(){
-  EL['mod-cols-list'].innerHTML = COLS.map(c => `
+  const box = EL['ui-cols-list'];
+  if (!box) return;
+  box.innerHTML = COLS.map(c => `
     <label class="set-check">
       <input type="checkbox" data-col="${c.k}"
              ${S.cols.includes(c.k) ? 'checked' : ''}>
@@ -120,30 +130,47 @@ function colsAction(e){
   afterChange();
 }
 
+/* ─── Menu réglages ─── */
+function toggleMenu(force){
+  const m = EL['ui-settings-menu'];
+  if (!m) return;
+  m.hidden = (force !== undefined) ? !force : !m.hidden;
+}
+
 /* ─── Init ─── */
 export function initSettings(onChange){
   afterChange = onChange || afterChange;
 
-  /* Ouverture des modales */
-  on('top-btn-types', 'click', () => { renderTypes(); openMod('mod-types'); });
-  on('top-btn-crit',  'click', () => { renderCrit();  openMod('mod-crit');  });
-  on('top-btn-cols',  'click', () => { renderCols();  openMod('mod-cols');  });
+  /* Menu déroulant Réglages */
+  on('btn-settings', 'click', (e) => { e.stopPropagation(); toggleMenu(); });
+  document.addEventListener('click', (e) => {
+    const m = EL['ui-settings-menu'];
+    if (m && !m.hidden && !m.contains(e.target) && e.target !== EL['btn-settings']){
+      toggleMenu(false);
+    }
+  });
 
-  /* Fermeture : bouton × + clic sur le fond */
-  for (const id of ['mod-types', 'mod-crit', 'mod-cols']){
-    on(id + '-close', 'click', () => closeMod(id));
-    EL[id]?.addEventListener('click', e => {
-      if (e.target === EL[id]) closeMod(id);
+  /* Ouverture des modales */
+  on('btn-types',    'click', () => { toggleMenu(false); renderTypes(); openMod('m-types');    });
+  on('btn-criteria', 'click', () => { toggleMenu(false); renderCrit();  openMod('m-criteria'); });
+  on('btn-cols',     'click', () => { toggleMenu(false); renderCols();  openMod('m-cols');     });
+
+  /* Fermeture : bouton [data-close] + clic sur le fond */
+  for (const id of MODALS){
+    const mod = EL[id];
+    if (!mod) continue;
+    mod.addEventListener('click', (e) => {
+      if (e.target === mod || e.target.closest('[data-close]')) closeMod(id);
     });
   }
 
   /* Actions dans les listes */
-  EL['mod-types-list']?.addEventListener('click', typesAction);
-  EL['mod-crit-list'] ?.addEventListener('click', critAction);
-  EL['mod-cols-list'] ?.addEventListener('change', colsAction);
+  EL['ui-types-list']   ?.addEventListener('click',  typesAction);
+  EL['ui-criteria-list']?.addEventListener('click',  critAction);
+  EL['ui-cols-list']    ?.addEventListener('change', colsAction);
 
   /* Ajout d'un type */
-  on('mod-types-add', 'click', async () => {
+  on('btn-type-add', 'click', async () => {
     try{
       await data.saveType({
         label      : 'Nouveau type',
@@ -156,7 +183,7 @@ export function initSettings(onChange){
   });
 
   /* Ajout d'un critère */
-  on('mod-crit-add', 'click', async () => {
+  on('btn-criteria-add', 'click', async () => {
     try{
       await data.saveCriterion({
         label      : 'Nouveau critère',
@@ -169,7 +196,7 @@ export function initSettings(onChange){
   });
 
   /* Recalcul manuel de tous les scores */
-  on('mod-crit-recalc', 'click', async () => {
+  on('btn-recalc', 'click', async () => {
     try{
       const n = await data.recalcAll();
       ok(`${n} score(s) recalculé(s)`); afterChange();
@@ -179,7 +206,8 @@ export function initSettings(onChange){
   /* Fermeture globale à l'Échap */
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    for (const id of ['mod-types', 'mod-crit', 'mod-cols']){
+    toggleMenu(false);
+    for (const id of MODALS){
       if (EL[id] && !EL[id].hidden) closeMod(id);
     }
   });
