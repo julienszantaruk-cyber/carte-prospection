@@ -2696,13 +2696,10 @@ const $  = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 
 function esc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
-    "&": "&",
-    "<": "<",
-    ">": ">",
-    '"': """,
-    "'": "'"
-  }[c]));
+  return String(s == null ? "" : s).replace(
+    /[&<>"']/g,
+    c => "&#" + c.charCodeAt(0) + ";"
+  );
 }
 
 function toast(msg, kind) {
