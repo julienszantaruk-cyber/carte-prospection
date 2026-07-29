@@ -1,0 +1,169 @@
+/* ═══════════════════════════════════════════════════════
+   10 · CARTE — Leaflet, marqueurs, clustering léger
+   ═══════════════════════════════════════════════════════ */
+
+import { MAP } from './config.js';
+import { S, typeById } from './state.js';
+import { EL, on, esc } from './dom.js';
+import { scoreBadge } from './score.js';
+
+let map = null;
+let layer = null;
+let openCb = () => {};
+
+export function initMap(onOpen){
+  openCb = onOpen || openCb;
+
+  map = L.map('map-canvas', {
+    center: MAP.center,
+    zoom  : MAP.zoom,
+    zoomControl: true,
+    attributionControl: true
+  });
+
+  L.tileLayer(MAP.tiles, {
+    attribution: MAP.attrib,
+    maxZoom: MAP.maxZoom
+  }).addTo(map);
+
+  layer = L.layerGroup().addTo(map);
+
+  on('map-btn-fit', 'click', fit);
+  on('map-btn-cluster', 'click', () => {
+    S.cluster = !S.cluster;
+    EL['map-btn-cluster'].classList.toggle('is-on', S.cluster);
+    render();
+  });
+
+  // Leaflet a besoin d'un recalcul quand l'onglet devient visible
+  window.addEventListener('resize', () => map?.invalidateSize());
+}
+
+export function refreshSize(){
+  setTimeout(() => map?.invalidateSize(), 60);
+}
+
+/* ─── Marqueur HTML pur ─── */
+function pinIcon(p){
+  const t = typeById(p.type_id);
+  const color = t?.color || '#6366f1';
+  const emoji = t?.emoji || '📍';
+  const fav = p.favorite ? '<span class="pin-fav">★</span>' : '';
+  return L.divIcon({
+    className: 'pin-wrap',
+    html: `<div class="pin" style="--pin:${color}">
+             <span class="pin-emoji">${emoji}</span>${fav}
+           </div>`,
+    iconSize: [30, 38],
+    iconAnchor: [15, 38],
+    popupAnchor: [0, -34]
+  });
+}
+
+function popupHtml(p){
+  const t = typeById(p.type_id);
+  const sc = p.score ?? null;
+  return `
+    <div class="popup-name">${esc(p.name)}</div>
+    <div class="popup-meta">
+      ${t ? esc(t.emoji + ' ' + t.label) : ''}
+      ${p.city ? ' · ' + esc(p.city) : ''}
+      ${sc !== null ? ` · <b>${sc}</b>/100` : ''}
+    </div>
+    <button class="popup-btn" data-open="${p.id}">Ouvrir la fiche</button>
+  `;
+}
+
+/* ─── Clustering maison : grille en pixels ─── */
+function clusterize(items){
+  if (!S.cluster || !map) return items.map(p => ({ single:p }));
+
+  const z = map.getZoom();
+  if (z >= 13) return items.map(p => ({ single:p }));
+
+  const cell = 60;
+  const buckets = new Map();
+
+  for (const p of items){
+    const pt = map.latLngToLayerPoint([p.lat, p.lng]);
+    const key = `${Math.floor(pt.x/cell)}:${Math.floor(pt.y/cell)}`;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(p);
+  }
+
+  const out = [];
+  for (const group of buckets.values()){
+    if (group.length === 1) out.push({ single: group[0] });
+    else out.push({ group });
+  }
+  return out;
+}
+
+function clusterIcon(n){
+  const size = n < 10 ? 34 : n < 50 ? 42 : 50;
+  return L.divIcon({
+    className: 'cluster-wrap',
+    html: `<div class="cluster" style="width:${size}px;height:${size}px">${n}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2]
+  });
+}
+
+/* ─── Rendu ─── */
+export function render(){
+  if (!layer) return;
+  layer.clearLayers();
+
+  const pts = S.view.filter(p =>
+    Number.isFinite(p.lat) && Number.isFinite(p.lng)
+  );
+
+  for (const item of clusterize(pts)){
+    if (item.single){
+      const p = item.single;
+      const m = L.marker([p.lat, p.lng], { icon: pinIcon(p) });
+      m.bindPopup(popupHtml(p));
+      m.on('popupopen', (e) => {
+        e.popup.getElement()
+          ?.querySelector('[data-open]')
+          ?.addEventListener('click', () => openCb(p.id));
+      });
+      m.addTo(layer);
+    } else {
+      const g = item.group;
+      const lat = g.reduce((s,p) => s + p.lat, 0) / g.length;
+      const lng = g.reduce((s,p) => s + p.lng, 0) / g.length;
+      const m = L.marker([lat, lng], { icon: clusterIcon(g.length) });
+      m.on('click', () => {
+        const b = L.latLngBounds(g.map(p => [p.lat, p.lng]));
+        map.fitBounds(b.pad(0.3));
+      });
+      m.addTo(layer);
+    }
+  }
+}
+
+/** Cadre la vue sur les lieux visibles */
+export function fit(){
+  const pts = S.view.filter(p =>
+    Number.isFinite(p.lat) && Number.isFinite(p.lng)
+  );
+  if (!pts.length || !map) return;
+  if (pts.length === 1){
+    map.setView([pts[0].lat, pts[0].lng], MAP.zoomOne);
+  } else {
+    map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lng])).pad(0.15));
+  }
+}
+
+/** Centre sur un lieu précis */
+export function focusOn(id){
+  const p = S.places.find(x => x.id === id);
+  if (!p || !Number.isFinite(p.lat) || !map) return;
+  map.setView([p.lat, p.lng], MAP.zoomOne, { animate:true });
+}
+
+/* Re-cluster au zoom */
+export function bindZoom(){
+  map?.on('zoomend', render);
+}
