@@ -1,93 +1,91 @@
+
 /* ═══════════════════════════════════════════════════════
-   0 · CONFIG — le seul fichier à éditer pour reconfigurer
+   Listes métier — fiche lieu
+   Indicatives : `sanitize.place()` les traite en texte libre,
+   donc modifier une valeur ici n'invalide aucune donnée existante.
    ═══════════════════════════════════════════════════════ */
 
-export const SUPA_URL = 'https://hawimjftwmrwljkjsnzu.supabase.co';
-export const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhd2ltamZ0d21yd2xqa2pzbnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjk4MTIsImV4cCI6MjEwMDgwNTgxMn0.Ej-PlxrKOd8cL9m3yQfIh3H9AvvDjY_d2xWGZskCz1s';
-
-/* ─── Carte ─── */
-export const MAP = {
-  center : [46.60, 2.30],   // centre de la France
-  zoom   : 6,
-  zoomOne: 15,              // zoom au clic sur un lieu
-  tiles  : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  attrib : '&copy; OpenStreetMap &copy; CARTO',
-  maxZoom: 19
-};
-
-/* ─── Listes fermées ─── */
-export const STATUSES = [
-  { v:'a_contacter', l:'À contacter',  badge:'badge-dim'    },
-  { v:'contacte',    l:'Contacté',     badge:'badge-acc'    },
-  { v:'en_cours',    l:'En cours',     badge:'badge-warn'   },
-  { v:'partenaire',  l:'Partenaire',   badge:'badge-ok'     },
-  { v:'refus',       l:'Refus',        badge:'badge-danger' },
-  { v:'inactif',     l:'Inactif',      badge:'badge-dim'    }
+export const LEGAL_FORMS = [
+  { v:'association_1901',   l:'Association loi 1901'        },
+  { v:'association_alsace', l:'Association (Alsace-Moselle)' },
+  { v:'fondation',          l:'Fondation'                    },
+  { v:'fonds_dotation',     l:'Fonds de dotation'            },
+  { v:'scic',               l:'SCIC'                         },
+  { v:'scop',               l:'SCOP'                         },
+  { v:'sas',                l:'SAS / SASU'                   },
+  { v:'sarl',               l:'SARL / EURL'                  },
+  { v:'sci',                l:'SCI'                          },
+  { v:'auto_entrepreneur',  l:'Micro-entreprise'             },
+  { v:'epic',               l:'EPIC / EPA'                   },
+  { v:'collectivite',       l:'Collectivité territoriale'    },
+  { v:'etablissement_public', l:'Établissement public'       },
+  { v:'gie',                l:'GIE'                          },
+  { v:'collectif_informel', l:'Collectif informel'           },
+  { v:'particulier',        l:'Particulier'                  },
+  { v:'autre',              l:'Autre'                        }
 ];
 
-export const RELATIONS = [
-  { v:'aucune',   l:'Aucune'   },
-  { v:'froide',   l:'Froide'   },
-  { v:'tiede',    l:'Tiède'    },
-  { v:'chaude',   l:'Chaude'   },
-  { v:'etablie',  l:'Établie'  }
+export const GOVERNANCES = [
+  { v:'ca_bureau',        l:'CA + bureau'              },
+  { v:'college_solidaire',l:'Collège solidaire'        },
+  { v:'direction_unique', l:'Direction unique'          },
+  { v:'coop_1p1v',        l:'Coopérative (1 pers. = 1 voix)' },
+  { v:'assemblee',        l:'Assemblée générale'       },
+  { v:'municipale',       l:'Gouvernance municipale'   },
+  { v:'privee',           l:'Privée / actionnaires'    },
+  { v:'informelle',       l:'Informelle'               },
+  { v:'autre',            l:'Autre'                    }
 ];
 
-export const PRIORITIES = [
-  { v:1, l:'1 · Basse'   },
-  { v:2, l:'2 · Moyenne' },
-  { v:3, l:'3 · Haute'   },
-  { v:4, l:'4 · Urgente' }
+export const BUSINESS_MODELS = [
+  { v:'subventionne',   l:'Majoritairement subventionné' },
+  { v:'mixte',          l:'Mixte (public + privé)'       },
+  { v:'autofinance',    l:'Autofinancé'                  },
+  { v:'commercial',     l:'Commercial (bar, boutique…)'  },
+  { v:'mecenat',        l:'Mécénat / philanthropie'      },
+  { v:'benevole',       l:'Bénévole'                     },
+  { v:'locatif',        l:'Revenus locatifs'             },
+  { v:'autre',          l:'Autre'                        }
 ];
 
-/* ─── Colonnes du tableau ─── */
-export const COLS = [
-  { k:'name',        l:'Nom',             def:true  },
-  { k:'type',        l:'Type',            def:true  },
-  { k:'city',        l:'Ville',           def:true  },
-  { k:'status',      l:'Statut',          def:true  },
-  { k:'score',       l:'Score',           def:true  },
-  { k:'priority',    l:'Priorité',        def:true  },
-  { k:'relation',    l:'Relation',        def:false },
-  { k:'contact_name',l:'Contact',         def:false },
-  { k:'email',       l:'Email',           def:false },
-  { k:'phone',       l:'Téléphone',       def:false },
-  { k:'website',     l:'Site',            def:false },
-  { k:'address',     l:'Adresse',         def:false },
-  { k:'zip',         l:'CP',              def:false },
-  { k:'country',     l:'Pays',            def:false },
-  { k:'legal_form',  l:'Forme juridique', def:false },
-  { k:'surface_total',l:'Surface',        def:false },
-  { k:'rent_month',  l:'Loyer/mois',      def:false },
-  { k:'budget_annual',l:'Budget annuel',  def:false },
-  { k:'studios_count',l:'Ateliers',       def:false },
-  { k:'audience_year',l:'Public/an',      def:false },
-  { k:'tags',        l:'Tags',            def:false },
-  { k:'next_action', l:'Prochaine étape', def:false },
-  { k:'next_date',   l:'Date relance',    def:false },
-  { k:'updated_at',  l:'Modifié le',      def:false }
+export const TENURES = [
+  { v:'proprietaire',          l:'Propriétaire'                 },
+  { v:'bail_commercial',       l:'Bail commercial'              },
+  { v:'bail_precaire',         l:'Bail précaire / dérogatoire'  },
+  { v:'bail_emphyteotique',    l:'Bail emphytéotique'           },
+  { v:'bail_habitation',       l:'Bail d\'habitation'           },
+  { v:'convention',            l:'Convention d\'occupation'     },
+  { v:'aot',                   l:'AOT (domaine public)'         },
+  { v:'pret',                  l:'Prêt à usage / commodat'      },
+  { v:'occupation_temporaire', l:'Occupation temporaire'        },
+  { v:'sans_titre',            l:'Occupation sans titre'        },
+  { v:'autre',                 l:'Autre'                        }
 ];
 
-/* ─── Filtres enregistrés ─── */
-export const PRESETS = [
-  { id:'all',      l:'Tous'         },
-  { id:'fav',      l:'★ Favoris'    },
-  { id:'todo',     l:'À contacter'  },
-  { id:'hot',      l:'Chauds'       },
-  { id:'top',      l:'Score ≥ 70'   },
-  { id:'late',     l:'Relance due'  }
+/* ─── Suggestions pour les champs multi-valeurs ───
+   Saisie libre assistée (datalist) : aucune contrainte. */
+
+export const REVENUE_SUGGEST = [
+  'Subvention État', 'Subvention région', 'Subvention département',
+  'Subvention commune', 'Subvention Europe', 'Mécénat privé',
+  'Billetterie', 'Bar / restauration', 'Location d\'espaces',
+  'Ateliers / formations', 'Boutique', 'Résidences payantes',
+  'Adhésions', 'Crowdfunding', 'Prestations de services'
 ];
 
-/* ─── Divers ─── */
-export const SORTS = [
-  { v:'score_desc', l:'Score ↓'      },
-  { v:'score_asc',  l:'Score ↑'      },
-  { v:'name_asc',   l:'Nom A→Z'      },
-  { v:'name_desc',  l:'Nom Z→A'      },
-  { v:'recent',     l:'Récents'      },
-  { v:'prio_desc',  l:'Priorité ↓'   }
+export const ACTIVITY_SUGGEST = [
+  'Expositions', 'Résidences d\'artistes', 'Ateliers d\'artistes',
+  'Concerts', 'Spectacle vivant', 'Cinéma', 'Conférences',
+  'Formations', 'Coworking', 'Fablab', 'Restauration',
+  'Librairie', 'Éducation artistique', 'Festival',
+  'Radio', 'Édition', 'Sérigraphie', 'Céramique'
 ];
 
-export const TOAST_MS  = 2800;
-export const STARS_MAX = 5;
-export const LS_PREFIX = 'prosp:';
+export const FEATURE_SUGGEST = [
+  'Quai de déchargement', 'Monte-charge', 'Hauteur > 4 m',
+  'Lumière naturelle', 'Occultation totale', 'Sol béton',
+  'Chauffage', 'Climatisation', 'Accès PMR', 'Parking',
+  'Cuisine', 'Douches', 'Stockage', 'Cour extérieure',
+  'Jardin', 'Alarme', 'Wifi', 'Triphasé',
+  'Point d\'eau', 'Sanitaires publics', 'Scène', 'Gradins'
+];
