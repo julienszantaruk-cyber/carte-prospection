@@ -14,7 +14,7 @@ let openCb = () => {};
 export function initMap(onOpen){
   openCb = onOpen || openCb;
 
-  map = L.map('map-canvas', {
+  map = L.map('ui-map', {
     center: MAP.center,
     zoom  : MAP.zoom,
     zoomControl: true,
