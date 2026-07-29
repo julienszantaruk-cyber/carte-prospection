@@ -10,7 +10,7 @@ export const REQUIRED_IDS = [
   'ui-toasts',
 
   /* v-auth */
-  'v-auth', 'f-auth-email', 'f-auth-password', 'btn-login', 'ui-auth-msg',
+  'v-auth', 'auth-form', 'f-auth-email', 'f-auth-password', 'btn-login', 'ui-auth-msg',
 
   /* v-app / topbar */
   'v-app',
