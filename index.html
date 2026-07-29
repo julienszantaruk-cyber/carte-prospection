@@ -3790,80 +3790,75 @@ $$(".modal").forEach(m => {
    19 · IMPORT / EXPORT
    ═══════════════════════════════════════════════════════════ */
 
-const EXPORT_FIELDS = Object.keys(SCHEMA);
+$("#btn-export").onclick = () => { openModal("#m-export"); exInfo(); };
 
-function exportJSON() {
-  const data = {
-    exported_at: new Date().toISOString(),
-    version: 1,
-    types: S.types,
-    criteria: S.crits,
-    places: visible().map(p => {
-      const o = {};
-      EXPORT_FIELDS.forEach(k => { o[k] = p[k] ?? null; });
-      return o;
-    })
-  };
-  download("benchmark-lieux-" + stamp() + ".json",
-    new Blob([JSON.stringify(data, null, 2)], { type:"application/json" }));
-  toast("Export JSON généré ✓", "good");
+$("#ex-scope").onchange = exInfo;
+$("#ex-fmt").onchange   = exInfo;
+
+function exInfo() {
+  const all = $("#ex-scope").value === "all";
+  const n = all ? S.places.length : visible().length;
+  $("#ex-info").textContent = n + " lieu(x) · format " + $("#ex-fmt").value.toUpperCase();
 }
 
-function csvCell(v) {
-  if (v == null) return "";
-  const s = Array.isArray(v) ? v.join(" | ") : String(v);
-  return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-}
+$("#ex-go").onclick = () => {
+  const rows    = $("#ex-scope").value === "all" ? S.places : visible();
+  const withN   = $("#ex-notes").checked;
+  const withR   = $("#ex-ratings").checked;
+  const fmt     = $("#ex-fmt").value;
 
-function exportCSV() {
-  const cols = COLS.filter(c => S.cols.has(c.k));
-  const rows = visible();
-  const strip = h => String(h).replace(/<[^>]*>/g, "");
+  if (!rows.length) { toast("Rien à exporter.", "bad"); return; }
 
-  const lines = [cols.map(c => csvCell(c.l)).join(";")];
-  rows.forEach(p => {
-    lines.push(cols.map(c => csvCell(strip(c.get(p)))).join(";"));
+  const data = rows.map(p => {
+    const o = { ...p };
+    if (!withR) delete o.ratings;
+    if (withN)  o.logs = S.logs[p.id] || [];
+    return o;
   });
 
-  download("comparateur-" + stamp() + ".csv",
-    new Blob(["\ufeff" + lines.join("\r\n")], { type:"text/csv;charset=utf-8" }));
-  toast("Export CSV généré ✓", "good");
-}
+  if (fmt === "json") {
+    download("lieux-" + stamp() + ".json",
+      new Blob([JSON.stringify(data, null, 2)], { type:"application/json" }));
 
-async function importJSON(file) {
-  let data;
-  try { data = JSON.parse(await file.text()); }
-  catch { toast("Fichier JSON illisible.", "bad"); return; }
+  } else if (fmt === "csv") {
+    const cols = ["name","city","status","priority","score","surface_total","rent_month"];
+    const esc2 = v => '"' + String(v ?? "").replace(/"/g,'""') + '"';
+    const csv = [cols.join(",")]
+      .concat(data.map(p => cols.map(c => esc2(p[c])).join(",")))
+      .join("\n");
+    download("lieux-" + stamp() + ".csv",
+      new Blob(["\uFEFF" + csv], { type:"text/csv;charset=utf-8" }));
 
-  const rows = Array.isArray(data) ? data : data.places;
-  if (!Array.isArray(rows) || !rows.length) { toast("Aucun lieu trouvé.", "bad"); return; }
+  } else if (fmt === "geojson") {
+    const gj = { type:"FeatureCollection", features: data
+      .filter(p => p.lat != null && p.lng != null)
+      .map(p => ({ type:"Feature",
+        geometry:{ type:"Point", coordinates:[p.lng, p.lat] },
+        properties: p })) };
+    download("lieux-" + stamp() + ".geojson",
+      new Blob([JSON.stringify(gj, null, 2)], { type:"application/geo+json" }));
 
-  const ok = await confirmBox("Importer",
-    `${rows.length} lieu(x) vont être ajoutés à ta base. Continuer ?`);
-  if (!ok) return;
+  } else {
+    const md = data.map(p =>
+      "## " + (p.name || "Sans nom") +
+      "\n\n- Ville : " + (p.city || "—") +
+      "\n- Score : " + (p.score ?? "—") + "/5" +
+      "\n- Surface : " + (p.surface_total ?? "—") + " m²" +
+      (p.takeaway ? "\n\n> " + p.takeaway : "")
+    ).join("\n\n---\n\n");
+    download("lieux-" + stamp() + ".md",
+      new Blob(["# Lieux\n\n" + md], { type:"text/markdown" }));
+  }
 
-  const payloads = rows.map(r => {
-    const c = sanitize(r);
-    c.user_id = S.user.id;
-    c.score = computeScore({ ratings: c.ratings });
-    if (!c.name) c.name = "Sans nom";
-    return c;
-  });
+  closeModal("#m-export");
+  toast("Export " + fmt.toUpperCase() + " ✓");
+};
 
-  const { data:ins, error } = await sb.from("places").insert(payloads).select();
-  if (error) { toast("Erreur import : " + error.message, "bad"); return; }
-
-  ins.forEach(p => { p.score = computeScore(p); S.places.unshift(p); });
-  renderAll();
-  toast(ins.length + " lieu(x) importé(s) ✓", "good");
-}
-
-$("#io-export-json").onclick = exportJSON;
-$("#io-export-csv").onclick  = exportCSV;
-$("#io-import").onchange = e => {
+$("#ex-import").onclick = () => $("#ex-file").click();
+$("#ex-file").onchange = e => {
   const f = e.target.files[0];
-  if (f) importJSON(f);
   e.target.value = "";
+  if (f) importJSON(f);
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -3944,7 +3939,7 @@ $("#f-reset").onclick = () => {
 $("#sb-toggle").onclick = () => $("#sidebar").classList.toggle("open");
 $("#btn-new").onclick   = () => openPlace(null);
 $("#btn-fit").onclick   = fitAll;
-$("#btn-cols").onclick  = openColsModal;
+$("#bt-cols").onclick  = openColsModal;
 $("#btn-io").onclick    = () => openModal("#m-io");
 $("#btn-logout").onclick = logout;
 
