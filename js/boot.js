@@ -54,15 +54,16 @@ const TABS = { map:'v-map', table:'v-table', dash:'v-dash' };
 function setTab(name){
   if (!TABS[name]) name = 'map';
   S.tab = name;
-  saveLocal();
 
+  // Bascule AVANT tout effet de bord : rien ne peut l'empêcher
   for (const t of Object.keys(TABS)){
     EL['btn-view-' + t]?.classList.toggle('is-active', t === name);
     const pane = EL[TABS[t]];
     if (pane) pane.hidden = (t !== name);
   }
 
-  // La carte doit se remesurer une fois son panneau visible
+  safe('saveLocal', saveLocal);
+
   if (name === 'map' && S.mapReady) safe('map:size', () => map.refreshSize());
 
   render();
@@ -72,9 +73,15 @@ function setTab(name){
    OUVERTURE D'UNE FICHE
    ───────────────────────────────────────────── */
 async function openPlace(id){
-  await sheet.open(id);
+  try{
+    await sheet.open(id);
+  }catch(e){
+    console.error('[sheet.open]', e);
+    err("Impossible d'ouvrir la fiche.");
+    return;
+  }
   if (id && S.tab === 'map') safe('map:focus', () => map.focusOn(id));
-  render();   // rafraîchit la sélection dans la liste / le tableau
+  render();
 }
 
 /* ─────────────────────────────────────────────
