@@ -19,7 +19,7 @@ export async function open(id){
   S.selId = p?.id || null;
 
   fillForm();
-  const sh = EL['sheet'];
+  const sh = EL['ui-sheet'];
   if (sh){ sh.hidden = false; sh.classList.add('is-open'); }
 
   if (p?.id){
@@ -34,7 +34,7 @@ export async function open(id){
 }
 
 export function close(){
-  const sh = EL['sheet'];
+  const sh = EL['ui-sheet'];
   if (sh){
     sh.classList.remove('is-open');
     setTimeout(() => { sh.hidden = true; }, 180);
@@ -360,7 +360,7 @@ export function initSheet(onChange){
   });
 
   document.addEventListener('keydown', (e) => {
-    const sh = EL['sheet'];
+    const sh = EL['ui-sheet'];
     if (e.key === 'Escape' && sh && !sh.hidden) close();
   });
 }
