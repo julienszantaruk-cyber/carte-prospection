@@ -60,3 +60,5 @@ export function scoreBadge(score, { cov } = {}) {
 
   return `<span class="badge badge--${tier}${partial ? ' badge--partial' : ''}" title="${title}">${v}${partial ? '<sup>*</sup>' : ''}</span>`;
 }
+
+export { coverage as scoreCoverage };
