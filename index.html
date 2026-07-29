@@ -1400,13 +1400,46 @@ const REQUIRED_IDS = [
   'm-criteria-preset-select', 'm-io-input-file'
 ];
 
+/* ── 3.1 Liste canonique des ids attendus ──────────────────────────── */
+const DOM_IDS = [
+  // Auth
+  'auth-screen','auth-email','auth-password','auth-submit',
+  'auth-toggle','auth-error','auth-title',
+  // Chrome applicatif
+  'app','user-email','btn-logout',
+  'tab-map','tab-table','tab-dash',
+  'view-map','view-table','view-dash',
+  // Filtres
+  'search','filter-type','filter-status','btn-reset-filters',
+  // Carte
+  'map',
+  // Tableau
+  'table-body','table-head','col-toggles','row-count',
+  // Dashboard
+  'kpi-total','kpi-active','kpi-avg-score','dash-by-type','dash-by-status',
+  // Formulaire
+  'modal-place','form-place','btn-save','btn-cancel','btn-delete','btn-new',
+  // Générique
+  'toast-container','confirm-modal','confirm-text','confirm-ok','confirm-cancel',
+];
+
+     
 /* Vérifie l'intégrité du DOM au boot. Ne masque rien : log rouge + throw. */
-function assertDom() {
-  const missing = REQUIRED_IDS.filter(id => !EL[id]);
-  if (!missing.length) { console.info('%c✓ DOM OK · ' + REQUIRED_IDS.length + ' ids', 'color:#10b981'); return true; }
-  console.error('%c✗ IDS MANQUANTS (' + missing.length + ') :', 'color:#fff;background:#dc2626;padding:2px 6px;font-weight:700');
-  missing.forEach(id => console.error('   • #' + id));
-  return false;
+function assertDom(ids) {
+  if (!Array.isArray(ids)) {
+    console.error('%cassertDom: liste d\u0027ids absente ou invalide', 'color:red;font-weight:bold');
+    return false;
+  }
+  const missing = ids.filter(id => !EL[id]);
+  if (missing.length) {
+    console.error(
+      '%cIDs manquants dans le DOM (' + missing.length + ') :',
+      'color:red;font-weight:bold', missing
+    );
+    return false;
+  }
+  console.log('%c✓ DOM complet (' + ids.length + ' ids)', 'color:#4ade80');
+  return true;
 }
 
 /* Vérifie les champs générés de la fiche. */
@@ -3483,20 +3516,14 @@ function setView(view) {
 /* ── 17.4 Séquence de démarrage ───────────────────────────────────── */
 
 async function boot() {
-  assertDom();
-  wireEvents();
-  authSetMode('login');
-
-  /* Restaure les préférences locales avant tout rendu. */
-  S.columns = Object.assign({}, DEFAULT_COLUMNS, lsGet(LS_COLUMNS, {}));
-  S.filters = Object.assign(defaultFilters(), lsGet(LS_FILTERS, {}));
-  S.view = lsGet(LS_VIEW, 'map');
-
-  /* Réagit aux connexions/déconnexions, y compris dans un autre onglet. */
-  sb.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT') { showAuth(); return; }
-    if (session && session.user) enterApp(session.user);
-  });
+  Object.assign(EL, {});
+  document.querySelectorAll('[id]').forEach(n => EL[n.id] = n);
+  if (!assertDom(DOM_IDS)) {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<div style="background:#7f1d1d;color:#fff;padding:12px;font:14px system-ui">' +
+      'Initialisation interrompue : structure HTML incomplète. Voir la console.</div>');
+    return;
+  }
 
   const { data } = await sb.auth.getSession();
   if (data.session && data.session.user) await enterApp(data.session.user);
