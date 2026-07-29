@@ -755,8 +755,11 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 /* ── helpers ── */
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s)
-  .replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">")
-  .replace(/"/g, """).replace(/'/g, "'");
+  .replace(/&/g,  "&")
+  .replace(/</g,  "<")
+  .replace(/>/g,  ">")
+  .replace(/"/g,  """)
+  .replace(/'/g,  "'");
 const isMobile = () => window.matchMedia("(max-width:860px)").matches;
 
 /* FIX #6 (p4) : bloque javascript: / data: dans les href utilisateur */
@@ -885,17 +888,17 @@ sb.auth.onAuthStateChange(async (event, session) => {
     $("reset").style.display = "none";
     $("app").style.display = "grid";
     if (!booted) { booted = true; await boot(); }        // FIX #7 : une seule fois
-  } else {
+    } else {
     USER = null; booted = false;
     $("app").style.display = "none";
     $("reset").style.display = "none";
-     $ ("login").style.display = "flex";
+    $("login").style.display = "flex";        // ✅ collé
   }
 });
 
 (function initAuthView() {
   if (hashError() && (location.hash || "").includes("error")) {
-    setMsg( $ ("l-err"), "Lien expiré ou déjà utilisé. Demande un nouveau lien.");
+    setMsg($("l-err"), "Lien expiré ou déjà utilisé. Demande un nouveau lien.");   // ✅
     history.replaceState(null, "", location.pathname);
   }
   if (isRecovery()) { $("login").style.display = "none"; $("reset").style.display = "flex"; }
