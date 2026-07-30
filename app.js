@@ -413,29 +413,58 @@ function resetAuthForm() {
   }
 }
 
-// ─────────────────────────────────────────────
-// 6. CARTE
-// ─────────────────────────────────────────────
+/* ==================================================
+   CARTE LEAFLET
+   ================================================== */
+
+const FRANCE_CENTER = [46.603354, 1.888334];
+const FRANCE_ZOOM = 6;
 
 function initMap() {
-  if (map) {
-    map.invalidateSize();
-    return;
+  const mapElement = getElement('map');
+
+  if (!mapElement) {
+    console.error('Élément HTML #map introuvable.');
+    showToast('Conteneur de carte introuvable.', 'error');
+    return null;
   }
 
-  map = window.L.map('map', {
-    zoomControl: true
-  }).setView([46.6031, 2.0], 6);
+  if (!window.L) {
+    console.error('Leaflet n’est pas chargé.');
+    showToast('Impossible de charger Leaflet.', 'error');
+    return null;
+  }
 
+  /* La carte existe déjà */
+  if (map) {
+    window.setTimeout(() => {
+      map.invalidateSize(true);
+    }, 50);
+
+    return map;
+  }
+
+  map = window.L.map(mapElement, {
+    zoomControl: true,
+    attributionControl: true,
+    minZoom: 3,
+    maxZoom: 19
+  });
+
+  map.setView(FRANCE_CENTER, FRANCE_ZOOM);
+
+  /* Fond de carte clair OpenStreetMap */
   window.L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
+      maxZoom: 19,
+      subdomains: ['a', 'b', 'c'],
       attribution:
-        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'
     }
   ).addTo(map);
 
+  /* Clic sur la carte : remplissage des coordonnées */
   map.on('click', (event) => {
     const lat = event.latlng.lat.toFixed(6);
     const lng = event.latlng.lng.toFixed(6);
@@ -446,218 +475,347 @@ function initMap() {
     if (latInput) latInput.value = lat;
     if (lngInput) lngInput.value = lng;
 
-    const tooltip = getElement('map-coord-tooltip');
-
-    if (tooltip) {
-      tooltip.textContent = `📍 ${lat}, ${lng}`;
-      tooltip.classList.remove('hidden');
-
-      window.clearTimeout(window.coordinateTooltipTimer);
-
-      window.coordinateTooltipTimer = window.setTimeout(() => {
-        tooltip.classList.add('hidden');
-      }, 3000);
-    }
+    showCoordinateTooltip(lat, lng);
   });
+
+  /* Correction Leaflet lorsque le conteneur était caché */
+  window.setTimeout(() => {
+    map?.invalidateSize(true);
+    map?.setView(FRANCE_CENTER, FRANCE_ZOOM);
+  }, 150);
+
+  return map;
+}
+
+function showCoordinateTooltip(lat, lng) {
+  const tooltip = getElement('map-coord-tooltip');
+
+  if (!tooltip) return;
+
+  tooltip.textContent = `📍 ${lat}, ${lng}`;
+  tooltip.classList.remove('hidden');
+
+  window.clearTimeout(window.coordinateTooltipTimer);
+
+  window.coordinateTooltipTimer = window.setTimeout(() => {
+    tooltip.classList.add('hidden');
+  }, 3000);
 }
 
 function createMarkerIcon(type) {
+  if (!window.L) return undefined;
+
   const colors = {
-    gallery: '#a78bfa',
-    museum: '#60a5fa',
-    theater: '#f87171',
-    concert: '#86efac',
-    cultural_center: '#fcd34d',
-    library: '#93c5fd',
-    cinema: '#f9a8d4',
-    other: '#9ca3af'
+    gallery: '#8b5cf6',
+    museum: '#3b82f6',
+    theater: '#ef4444',
+    concert: '#22c55e',
+    cultural_center: '#f59e0b',
+    library: '#0ea5e9',
+    cinema: '#ec4899',
+    other: '#6b7280'
   };
 
   const color = colors[type] || colors.other;
 
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg"
-         width="28"
-         height="36"
-         viewBox="0 0 28 36">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="30"
+      height="40"
+      viewBox="0 0 30 40"
+      aria-hidden="true"
+    >
       <path
-        d="M14 0C6.268 0 0 6.268 0 14c0 9.333 14 22 14 22s14-12.667 14-22C28 6.268 21.732 0 14 0z"
-        fill="${color}">
-      </path>
-      <circle cx="14" cy="14" r="6" fill="white" opacity="0.85"></circle>
+        d="M15 0C6.716 0 0 6.716 0 15c0 10 15 25 15 25s15-15 15-25C30 6.716 23.284 0 15 0z"
+        fill="${color}"
+        stroke="#ffffff"
+        stroke-width="1.5"
+      />
+      <circle
+        cx="15"
+        cy="15"
+        r="6"
+        fill="#ffffff"
+        opacity="0.95"
+      />
     </svg>
   `;
 
   return window.L.divIcon({
     html: svg,
     className: 'custom-marker',
-    iconSize: [28, 36],
-    iconAnchor: [14, 36],
-    popupAnchor: [0, -36]
+    iconSize: [30, 40],
+    iconAnchor: [15, 40],
+    popupAnchor: [0, -38]
   });
 }
 
 function renderMarkers() {
-  if (!map) return;
+  if (!map || !window.L) return;
 
   clearMarkers();
 
-  getFilteredPlaces().forEach((place) => {
+  const filteredPlaces =
+    typeof getFilteredPlaces === 'function'
+      ? getFilteredPlaces()
+      : [];
+
+  filteredPlaces.forEach((place) => {
     const lat = Number(place.lat);
     const lng = Number(place.lng);
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
       return;
     }
 
-    const marker = window.L
-      .marker([lat, lng], {
-        icon: createMarkerIcon(place.type)
-      })
-      .addTo(map);
+    const marker = window.L.marker([lat, lng], {
+      icon: createMarkerIcon(place.type),
+      title: place.name || 'Lieu culturel'
+    }).addTo(map);
 
-    const websiteUrl = safeUrl(place.website);
+    marker.bindPopup(createMarkerPopup(place), {
+      maxWidth: 320,
+      minWidth: 220
+    });
 
-    const popup = `
-      <div style="min-width:200px">
-        <strong style="font-size:14px">
-          ${esc(place.name)}
-        </strong>
+    marker.on('popupopen', (event) => {
+      const popupElement = event.popup.getElement();
+      const editButton = popupElement?.querySelector(
+        '[data-action="edit-place"]'
+      );
 
-        <br>
+      if (!editButton) return;
 
-        <span style="color:#8b949e;font-size:12px">
-          ${esc(place.city || '')}
-          ${place.country ? `, ${esc(place.country)}` : ''}
-        </span>
+      editButton.addEventListener(
+        'click',
+        () => {
+          openEditModal(String(place.id));
+          map.closePopup();
+        },
+        { once: true }
+      );
+    });
 
-        <br>
-
-        <span class="badge-type ${esc(place.type)}">
-          ${esc(TYPE_LABELS[place.type] || place.type || 'Autre')}
-        </span>
-
-        <span class="badge-status ${esc(place.status)}">
-          ${esc(STATUS_LABELS[place.status] || place.status || 'Prospect')}
-        </span>
-
-        ${place.favorite ? '<br>⭐ Favori' : ''}
-
-        ${
-          place.address
-            ? `<br><small style="color:#8b949e">${esc(place.address)}</small>`
-            : ''
-        }
-
-        ${
-          place.contact_email
-            ? `
-              <br>
-              <small>
-                ✉️
-                <a href="mailto:${esc(place.contact_email)}"
-                   style="color:#58a6ff">
-                  ${esc(place.contact_email)}
-                </a>
-              </small>
-            `
-            : ''
-        }
-
-        ${
-          websiteUrl
-            ? `
-              <br>
-              <small>
-                🔗
-                <a href="${esc(websiteUrl)}"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   style="color:#58a6ff">
-                  Site web
-                </a>
-              </small>
-            `
-            : ''
-        }
-
-        <br>
-
-        <button
-          type="button"
-          onclick="openEditModal('${place.id}')"
-          style="
-            margin-top:6px;
-            background:#21262d;
-            border:1px solid #30363d;
-            color:#c9d1d9;
-            padding:4px 10px;
-            border-radius:6px;
-            cursor:pointer;
-            font-size:12px;
-          ">
-          Éditer
-        </button>
-      </div>
-    `;
-
-    marker.bindPopup(popup);
-    markers.push({ id: place.id, marker });
+    markers.push({
+      id: place.id,
+      marker
+    });
   });
 }
 
+function createMarkerPopup(place) {
+  const websiteUrl = safeUrl(place.website);
+  const type = place.type || 'other';
+  const status = place.status || 'prospect';
+
+  const location = [place.city, place.country]
+    .filter(Boolean)
+    .map((value) => esc(value))
+    .join(', ');
+
+  return `
+    <div class="map-popup">
+      <strong class="map-popup-title">
+        ${esc(place.name || 'Lieu sans nom')}
+      </strong>
+
+      ${
+        location
+          ? `
+            <div class="map-popup-location">
+              📍 ${location}
+            </div>
+          `
+          : ''
+      }
+
+      <div class="map-popup-badges">
+        <span class="badge-type ${esc(type)}">
+          ${esc(TYPE_LABELS[type] || 'Autre')}
+        </span>
+
+        <span class="badge-status ${esc(status)}">
+          ${esc(STATUS_LABELS[status] || 'Prospect')}
+        </span>
+      </div>
+
+      ${
+        place.favorite
+          ? '<div class="map-popup-line">⭐ Favori</div>'
+          : ''
+      }
+
+      ${
+        place.address
+          ? `
+            <div class="map-popup-line">
+              ${esc(place.address)}
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        place.contact_email
+          ? `
+            <div class="map-popup-line">
+              ✉️
+              <a href="mailto:${esc(place.contact_email)}">
+                ${esc(place.contact_email)}
+              </a>
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        place.phone
+          ? `
+            <div class="map-popup-line">
+              ☎️
+              <a href="tel:${esc(place.phone)}">
+                ${esc(place.phone)}
+              </a>
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        websiteUrl
+          ? `
+            <div class="map-popup-line">
+              🔗
+              <a
+                href="${esc(websiteUrl)}"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Voir le site
+              </a>
+            </div>
+          `
+          : ''
+      }
+
+      <button
+        type="button"
+        class="map-popup-edit"
+        data-action="edit-place"
+      >
+        ✏️ Éditer
+      </button>
+    </div>
+  `;
+}
+
 function clearMarkers() {
-  markers.forEach(({ marker }) => {
-    marker.remove();
+  if (!Array.isArray(markers)) {
+    markers = [];
+    return;
+  }
+
+  markers.forEach((item) => {
+    if (item?.marker && map?.hasLayer(item.marker)) {
+      map.removeLayer(item.marker);
+    }
   });
 
   markers = [];
 }
 
 function fitBounds() {
-  if (!map || markers.length === 0) {
-    map?.setView([46.6031, 2.0], 6);
+  if (!map) return;
+
+  if (!Array.isArray(markers) || markers.length === 0) {
+    map.setView(FRANCE_CENTER, FRANCE_ZOOM);
     return;
   }
 
-  const positions = markers.map(({ marker }) => marker.getLatLng());
+  const positions = markers
+    .map((item) => item.marker?.getLatLng())
+    .filter(Boolean);
+
+  if (positions.length === 0) {
+    map.setView(FRANCE_CENTER, FRANCE_ZOOM);
+    return;
+  }
 
   if (positions.length === 1) {
     map.setView(positions[0], 13);
     return;
   }
 
-  map.fitBounds(positions, {
-    padding: [40, 40],
+  const bounds = window.L.latLngBounds(positions);
+
+  map.fitBounds(bounds, {
+    padding: [45, 45],
     maxZoom: 12
   });
 }
 
+function showMapView() {
+  const mapPanel = getElement('view-map');
+  const listPanel = getElement('view-list');
+
+  listPanel?.classList.add('hidden');
+  mapPanel?.classList.remove('hidden');
+
+  /*
+   * Leaflet doit être initialisé uniquement lorsque
+   * son conteneur est visible.
+   */
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      const leafletMap = initMap();
+
+      if (!leafletMap) return;
+
+      leafletMap.invalidateSize(true);
+      renderMarkers();
+
+      window.setTimeout(() => {
+        leafletMap.invalidateSize(true);
+
+        if (markers.length > 0) {
+          fitBounds();
+        } else {
+          leafletMap.setView(FRANCE_CENTER, FRANCE_ZOOM);
+        }
+      }, 150);
+    });
+  });
+}
+
+function showListView() {
+  const mapPanel = getElement('view-map');
+  const listPanel = getElement('view-list');
+
+  mapPanel?.classList.add('hidden');
+  listPanel?.classList.remove('hidden');
+}
+
 function bindMap() {
-  bindIfExists('btn-fit-markers', 'click', fitBounds);
+  bindIfExists('btn-fit-markers', 'click', () => {
+    map?.invalidateSize(true);
+    fitBounds();
+  });
 
   bindIfExists('filter-view', 'change', (event) => {
     currentView = event.target.value;
 
-    const mapPanel = getElement('view-map');
-    const listPanel = getElement('view-list');
-
     if (currentView === 'map') {
-      mapPanel?.classList.remove('hidden');
-      listPanel?.classList.add('hidden');
-
-      window.setTimeout(() => {
-        initMap();
-        renderMarkers();
-        map.invalidateSize();
-
-        if (markers.length > 0) {
-          fitBounds();
-        }
-      }, 100);
+      showMapView();
     } else {
-      mapPanel?.classList.add('hidden');
-      listPanel?.classList.remove('hidden');
+      showListView();
     }
   });
 
@@ -665,6 +823,13 @@ function bindMap() {
     if (!navigator.geolocation) {
       showToast('Géolocalisation non disponible.', 'error');
       return;
+    }
+
+    const geolocationButton = getElement('btn-geolocate');
+
+    if (geolocationButton) {
+      geolocationButton.disabled = true;
+      geolocationButton.textContent = '⏳ Localisation…';
     }
 
     navigator.geolocation.getCurrentPosition(
@@ -678,20 +843,45 @@ function bindMap() {
         if (latInput) latInput.value = lat;
         if (lngInput) lngInput.value = lng;
 
+        showCoordinateTooltip(lat, lng);
         showToast('Position définie.', 'success');
+
+        if (map && currentView === 'map') {
+          map.setView([Number(lat), Number(lng)], 14);
+        }
+
+        resetGeolocationButton();
       },
-      () => {
-        showToast(
-          'Impossible d’obtenir ta position.',
-          'error'
-        );
+      (error) => {
+        let message = 'Impossible d’obtenir ta position.';
+
+        if (error.code === error.PERMISSION_DENIED) {
+          message = 'Autorisation de géolocalisation refusée.';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          message = 'Position actuellement indisponible.';
+        } else if (error.code === error.TIMEOUT) {
+          message = 'La géolocalisation a expiré.';
+        }
+
+        showToast(message, 'error');
+        resetGeolocationButton();
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000
+        timeout: 10000,
+        maximumAge: 60000
       }
     );
   });
+}
+
+function resetGeolocationButton() {
+  const geolocationButton = getElement('btn-geolocate');
+
+  if (!geolocationButton) return;
+
+  geolocationButton.disabled = false;
+  geolocationButton.textContent = '📍 Géolocaliser';
 }
 
 // ─────────────────────────────────────────────
