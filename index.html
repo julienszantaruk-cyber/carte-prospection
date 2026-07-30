@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cultural Places Scout</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+
+<!-- Setup Banner -->
+<div id="setup-banner" class="hidden">
+  <div class="banner-content">
+    <strong>⚠️ Supabase non configuré</strong>
+    <p>Déclarez <code>SUPABASE_URL</code> et <code>SUPABASE_ANON_KEY</code> dans <code>app.js</code>, puis rechargez.</p>
+  </div>
+</div>
+
+<!-- Auth Screen -->
+<div id="auth-screen" class="screen hidden">
+  <div class="auth-box">
+    <h1>🎭 Cultural Places Scout</h1>
+    <div id="auth-tabs">
+      <button class="tab-btn active" data-tab="login">Connexion</button>
+      <button class="tab-btn" data-tab="register">Inscription</button>
+    </div>
+    <form id="auth-form">
+      <div class="form-group">
+        <label for="auth-email">Email</label>
+        <input type="email" id="auth-email" required placeholder="email@exemple.fr">
+      </div>
+      <div class="form-group">
+        <label for="auth-password">Mot de passe</label>
+        <input type="password" id="auth-password" required placeholder="••••••••" minlength="6">
+      </div>
+      <div class="form-group" id="confirm-group" style="display:none;">
+        <label for="auth-confirm">Confirmer le mot de passe</label>
+        <input type="password" id="auth-confirm" placeholder="••••••••">
+      </div>
+      <button type="submit" id="auth-submit" class="btn-primary">Connexion</button>
+      <p id="auth-error" class="error-msg hidden"></p>
+    </form>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app-screen" class="screen hidden">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <h2>🎭 Lieux culturels</h2>
+      <span id="place-count" class="badge">0 lieu(x)</span>
+    </div>
+    <div class="header-right">
+      <button id="btn-my-locations" class="btn-secondary">📍 Mes favoris</button>
+      <button id="btn-add-place" class="btn-primary">+ Ajouter</button>
+      <button id="btn-logout" class="btn-icon" title="Déconnexion">🚪</button>
+    </div>
+  </header>
+
+  <!-- Filters Bar -->
+  <div class="filters-bar">
+    <input type="text" id="filter-search" placeholder="🔍 Rechercher…">
+    <select id="filter-type">
+      <option value="">Type : tous</option>
+      <option value="gallery">Galerie d'art</option>
+      <option value="museum">Musée</option>
+      <option value="theater">Théâtre</option>
+      <option value="concert">Salle de concert</option>
+      <option value="cultural_center">Centre culturel</option>
+      <option value="library">Bibliothèque</option>
+      <option value="cinema">Cinéma</option>
+      <option value="other">Autre</option>
+    </select>
+    <select id="filter-status">
+      <option value="">Statut : tous</option>
+      <option value="prospect">Prospect</option>
+      <option value="contacted">Contacté</option>
+      <option value="negotiating">En négociation</option>
+      <option value="contracted">Sous contrat</option>
+      <option value="archived">Archivé</option>
+    </select>
+    <select id="filter-view">
+      <option value="list">📋 Liste</option>
+      <option value="map">🗺️ Carte</option>
+    </select>
+  </div>
+
+  <!-- Map View -->
+  <div id="view-map" class="view-panel hidden">
+    <div id="map"></div>
+    <div id="map-toolbar">
+      <button id="btn-fit-markers" class="btn-secondary">📍 Cadrer tous</button>
+      <span id="map-hint">Cliquez sur la carte pour définir les coordonnées</span>
+    </div>
+  </div>
+
+  <!-- List View -->
+  <div id="view-list" class="view-panel">
+    <div class="list-container">
+      <table class="places-table">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Type</th>
+            <th>Ville</th>
+            <th>Statut</th>
+            <th>⭐</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="places-tbody"></tbody>
+      </table>
+      <p id="no-places" class="empty-msg hidden">Aucun lieu trouvé.</p>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span id="status-msg">Pret</span>
+    <span id="user-email"></span>
+  </div>
+</div>
+
+<!-- Place Modal -->
+<div id="place-modal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modal-title">Ajouter un lieu</h3>
+      <button id="modal-close" class="btn-icon">✕</button>
+    </div>
+    <form id="place-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="place-name">Nom *</label>
+          <input type="text" id="place-name" required maxlength="200">
+        </div>
+        <div class="form-group">
+          <label for="place-type">Type *</label>
+          <select id="place-type" required>
+            <option value="">— Sélectionner —</option>
+            <option value="gallery">Galerie d'art</option>
+            <option value="museum">Musée</option>
+            <option value="theater">Théâtre</option>
+            <option value="concert">Salle de concert</option>
+            <option value="cultural_center">Centre culturel</option>
+            <option value="library">Bibliothèque</option>
+            <option value="cinema">Cinéma</option>
+            <option value="other">Autre</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="place-description">Description</label>
+        <textarea id="place-description" rows="2" maxlength="2000"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="place-address">Adresse</label>
+        <input type="text" id="place-address" maxlength="300">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="place-city">Ville *</label>
+          <input type="text" id="place-city" required maxlength="100">
+        </div>
+        <div class="form-group">
+          <label for="place-postal">Code postal</label>
+          <input type="text" id="place-postal" maxlength="20">
+        </div>
+        <div class="form-group">
+          <label for="place-country">Pays</label>
+          <input type="text" id="place-country" value="France" maxlength="100">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="place-lat">Latitude</label>
+          <input type="number" id="place-lat" step="0.000001" min="-90" max="90" placeholder="Ex: 48.8566">
+        </div>
+        <div class="form-group">
+          <label for="place-lng">Longitude</label>
+          <input type="number" id="place-lng" step="0.000001" min="-180" max="180" placeholder="Ex: 2.3522">
+        </div>
+        <button type="button" id="btn-geolocate" class="btn-secondary geo-btn">📍 Géolocaliser</button>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="place-email">Email contact</label>
+          <input type="email" id="place-email" maxlength="300">
+        </div>
+        <div class="form-group">
+          <label for="place-phone">Téléphone</label>
+          <input type="tel" id="place-phone" maxlength="50">
+        </div>
+        <div class="form-group">
+          <label for="place-website">Site web</label>
+          <input type="url" id="place-website" maxlength="500" placeholder="https://">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="place-tags">Tags (séparés par virgule)</label>
+          <input type="text" id="place-tags" maxlength="200" placeholder="art, contemporain, Paris">
+        </div>
+        <div class="form-group">
+          <label for="place-status">Statut</label>
+          <select id="place-status">
+            <option value="prospect">Prospect</option>
+            <option value="contacted">Contacté</option>
+            <option value="negotiating">En négociation</option>
+            <option value="contracted">Sous contrat</option>
+            <option value="archived">Archivé</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="place-priority">Priorité</label>
+          <select id="place-priority">
+            <option value="low">Basse</option>
+            <option value="medium" selected>Moyenne</option>
+            <option value="high">Haute</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="place-surface">Surface (m²)</label>
+          <input type="number" id="place-surface" min="0" max="999999">
+        </div>
+        <div class="form-group">
+          <label for="place-rent">Loyer mensuel (€)</label>
+          <input type="number" id="place-rent" min="0">
+        </div>
+        <div class="form-group check-group">
+          <label for="place-favorite">⭐ Favori</label>
+          <input type="checkbox" id="place-favorite">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="place-notes">Notes</label>
+        <textarea id="place-notes" rows="2" maxlength="5000"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="place-next-action">Prochaine action</label>
+          <input type="text" id="place-next-action" maxlength="300">
+        </div>
+        <div class="form-group">
+          <label for="place-next-date">Date prévue</label>
+          <input type="date" id="place-next-date">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="btn-delete-place" class="btn-danger hidden">Supprimer</button>
+        <div class="footer-right">
+          <button type="button" id="btn-cancel-place" class="btn-secondary">Annuler</button>
+          <button type="submit" id="btn-save-place" class="btn-primary">Enregistrer</button>
+        </div>
+      </div>
+      <p id="place-form-error" class="error-msg hidden"></p>
+    </form>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- Map tooltip overlay -->
+<div id="map-coord-tooltip" class="coord-tooltip hidden"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"8607d2a720d14b038279025b2b5a82e5"}' crossorigin="anonymous"></script>
+</body>
+</html>
