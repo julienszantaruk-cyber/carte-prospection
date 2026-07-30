@@ -118,7 +118,7 @@
 
   <!-- Status Bar -->
   <div class="status-bar">
-    <span id="status-msg">Pret</span>
+    <span id="status-msg">Prêt</span>
     <span id="user-email"></span>
   </div>
 </div>
@@ -187,6 +187,11 @@
           <input type="number" id="place-lng" step="0.000001" min="-180" max="180" placeholder="Ex: 2.3522">
         </div>
         <button type="button" id="btn-geolocate" class="btn-secondary geo-btn">📍 Géolocaliser</button>
+        <button type="button" id="btn-my-locations" class="btn-secondary">📍 Mes favoris</button>
+<button type="button" id="btn-add-place" class="btn-primary">+ Ajouter</button>
+<button type="button" id="btn-logout" class="btn-icon" title="Déconnexion">🚪</button>
+<button type="button" id="btn-fit-markers" class="btn-secondary">📍 Cadrer tous</button>
+<button type="button" id="modal-close" class="btn-icon" aria-label="Fermer">✕</button>
       </div>
 
       <div class="form-row">
@@ -273,14 +278,13 @@
 </div>
 
 <!-- Toast Container -->
-<div id="toast-container"></div>
+<div id="toast-container" aria-live="polite"></div>
 
 <!-- Map tooltip overlay -->
 <div id="map-coord-tooltip" class="coord-tooltip hidden"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="app.js"></script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"8607d2a720d14b038279025b2b5a82e5"}' crossorigin="anonymous"></script>
 </body>
 </html>
