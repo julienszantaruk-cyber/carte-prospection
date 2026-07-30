@@ -1718,24 +1718,23 @@ function renderMarkers() {
 
 function buildPopupHTML(place) {
   const id = escAttribute(place.id);
-  const type =
-    TYPE_LABELS[place.type] ||
-    place.type ||
-    'Autre';
+  const t = typeBySlug(place.type);
+
+  const typeLabel = t?.label || place.type || 'Autre';
+  const typeIcon = t?.icon || '📍';
+  const typeColor = t?.color || '#bdc6d3';
 
   const status =
-    STATUS_LABELS[place.status] ||
-    place.status ||
-    'Prospect';
+    STATUS_LABELS[place.status] || place.status || 'Prospect';
 
   return `
     <article class="map-popup">
-      <strong>${place.favorite ? '⭐ ' : ''}${escHtml(
-        place.name || 'Lieu'
-      )}</strong>
+      <strong>${place.favorite ? '⭐ ' : ''}${escHtml(place.name || 'Lieu')}</strong>
 
       <p>
-        ${escHtml(type)}<br>
+        <span style="color:${escAttribute(typeColor)}">
+          ${escHtml(typeIcon)} ${escHtml(typeLabel)}
+        </span><br>
         ${escHtml(place.city || '')}
       </p>
 
@@ -1941,17 +1940,14 @@ function updateCount() {
 }
 
 function badgeType(type) {
-  const safeType = /^[a-z-]+$/i.test(type || '')
-    ? type
-    : 'other';
+  const t = typeBySlug(type);
+  const label = t?.label || type || 'Autre';
+  const color = t?.color || '#bdc6d3';
+  const icon = t?.icon || '';
 
-  const label = TYPE_LABELS[type] || type || 'Autre';
-
-  return `
-    <span class="badge-type type-${safeType}">
-      ${escHtml(label)}
-    </span>
-  `;
+  return `<span class="badge-type"
+    style="background:${escAttribute(color)}22;color:${escAttribute(color)};border:1px solid ${escAttribute(color)}55">
+    ${escHtml(icon)} ${escHtml(label)}</span>`;
 }
 
 function badgeStatus(status) {
