@@ -1083,11 +1083,8 @@ async function loadPlaces() {
 }
 
 async function savePlace(formData) {
-  const saveButton =
-    getElement('btn-save-place');
-
-  const errorElement =
-    getElement('place-form-error');
+  const saveButton = getElement('btn-save-place');
+  const errorElement = getElement('place-form-error');
 
   setLoading(saveButton, true);
   errorElement?.classList.add('hidden');
@@ -1096,43 +1093,32 @@ async function savePlace(formData) {
     const user = requireCurrentUser();
 
     const payload = {
-      name: formData.name,
+      name: formData.name.trim(),
       type: formData.type || 'other',
-      description:
-        formData.description || null,
+      description: formData.description || null,
       address: formData.address || null,
       city: formData.city || null,
-      postal_code:
-        formData.postal_code || null,
+      postal_code: formData.postal_code || null,
       country: formData.country || 'France',
-      lat: normalizeNullableNumber(
-        formData.lat
-      ),
-      lng: normalizeNullableNumber(
-        formData.lng
-      ),
-      contact_email:
-        formData.contact_email || null,
+      lat: normalizeNullableNumber(formData.lat),
+      lng: normalizeNullableNumber(formData.lng),
+      contact_email: formData.contact_email || null,
       phone: formData.phone || null,
-      website:
-        safeUrl(formData.website) || null,
+      website: safeUrl(formData.website) || null,
       tags: formData.tags || null,
-      status:
-        formData.status || 'prospect',
-      priority:
-        formData.priority || 'medium',
+      status: formData.status || 'prospect',
+      priority: formData.priority || 'medium',
       favorite: Boolean(formData.favorite),
-      surface_m2: normalizeNullableNumber(
-        formData.surface_m2
-      ),
-      rent_monthly: normalizeNullableNumber(
-        formData.rent_monthly
-      ),
+      surface_m2: normalizeNullableNumber(formData.surface_m2),
+      rent_monthly: normalizeNullableNumber(formData.rent_monthly),
       notes: formData.notes || null,
-      next_action:
-        formData.next_action || null,
+      next_action: formData.next_action || null,
       next_date: formData.next_date || null
     };
+
+    if (!payload.name) {
+      throw new Error('Le nom est obligatoire.');
+    }
 
     if (editingId) {
       const { data, error } = await db
@@ -1151,41 +1137,33 @@ async function savePlace(formData) {
           : place
       );
 
-      showToast(
-        'Lieu mis à jour.',
-        'success'
-      );
+      showToast('Lieu mis à jour.', 'success');
     } else {
-      const insertPayload = {
-        ...payload,
-
-        // Indispensable pour la politique RLS.
-        owner_id: user.id
-      };
-
       const { data, error } = await db
         .from('places')
-        .insert(insertPayload)
+        .insert({
+          ...payload,
+          owner_id: user.id
+        })
         .select()
         .single();
 
       if (error) throw error;
 
       places.unshift(data);
-
       showToast('Lieu ajouté.', 'success');
     }
 
     refreshViews();
     closeModal();
   } catch (error) {
-    console.error(
-      'Erreur savePlace :',
-      error
-    );
+    console.error('Erreur savePlace :', error);
 
     const message =
-      error.message || 'Erreur inconnue';
+      error?.message ||
+      error?.details ||
+      error?.hint ||
+      'Erreur inconnue';
 
     showToast(`Erreur : ${message}`, 'error');
 
