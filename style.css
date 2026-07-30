@@ -818,9 +818,9 @@ body.modal-open {
   }
 
   #map {
-    height: calc(100vh - 270px);
-    min-height: 420px;
-  }
+  width: 100%;
+  max-width: 100%;
+}
 
   .map-hint {
     width: max-content;
@@ -1039,4 +1039,96 @@ body.modal-open {
 
 @media (max-width: 620px) {
   .type-create-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================================
+   GARDE-FOU ANTI-DÉBORDEMENT
+   ============================================ */
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  min-width: 0; /* 🔑 autorise les flex-items à se compresser */
+}
+
+/* ============================================
+   HEADER RESPONSIVE
+   ============================================ */
+
+@media (max-width: 720px) {
+  .app-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+    row-gap: 10px;
+  }
+
+   @media (max-width: 720px) {
+  #btn-logout .btn-label {
+    display: none;
+  }
+
+  #btn-logout {
+    flex: 0 0 auto;
+    padding: 9px 11px;
+  }
+}
+
+  /* Le titre prend la ligne du haut, les boutons suivent */
+  .app-header .brand {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  .app-header .brand h1 {
+    font-size: 16px;
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  .header-actions {
+    flex: 1 1 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .header-actions button {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  /* Le compteur reste compact */
+  .count-badge {
+    flex: 0 0 auto;
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
+@media (max-width: 720px) {
+  .status-bar {
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+
+  .status-bar span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
 }
