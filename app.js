@@ -7,19 +7,19 @@
 
 // ─────────────────────────────────────────────
 // 1. CONFIGURATION SUPABASE
-// Important : ne pas ajouter /rest/v1/ à l'URL
+// Ne jamais ajouter /rest/v1/ à cette URL.
 // ─────────────────────────────────────────────
 
-const SUPABASE_URL = 'https://hawimjftwmrwljkjsnzu.supabase.co';
+const SUPABASE_URL =
+  'https://hawimjftwmrwljkjsnzu.supabase.co';
 
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhd2ltamZ0d21yd2xqa2pzbnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjk4MTIsImV4cCI6MjEwMDgwNTgxMn0.Ej-PlxrKOd8cL9m3yQfIh3H9AvvDjY_d2xWGZskCz1s';
 
-// Client initialisé après le chargement du DOM.
 let db = null;
 
 // ─────────────────────────────────────────────
-// 2. ÉTAT DE L'APPLICATION
+// 2. ÉTAT DE L’APPLICATION
 // ─────────────────────────────────────────────
 
 let map = null;
@@ -28,9 +28,36 @@ let places = [];
 let editingId = null;
 let currentView = 'list';
 let favoritesOnly = false;
+let currentUser = null;
 
 // ─────────────────────────────────────────────
-// 3. HELPERS
+// 3. CONSTANTES
+// ─────────────────────────────────────────────
+
+const FRANCE_CENTER = [46.603354, 1.888334];
+const FRANCE_ZOOM = 6;
+
+const TYPE_LABELS = {
+  gallery: 'Galerie',
+  museum: 'Musée',
+  theater: 'Théâtre',
+  concert: 'Concert',
+  cultural_center: 'Centre culturel',
+  library: 'Bibliothèque',
+  cinema: 'Cinéma',
+  other: 'Autre'
+};
+
+const STATUS_LABELS = {
+  prospect: 'Prospect',
+  contacted: 'Contacté',
+  negotiating: 'En négociation',
+  contracted: 'Contrat',
+  archived: 'Archivé'
+};
+
+// ─────────────────────────────────────────────
+// 4. HELPERS
 // ─────────────────────────────────────────────
 
 function getElement(id) {
@@ -60,12 +87,18 @@ function setLoading(button, loading) {
   if (!button) return;
 
   if (loading) {
-    button.dataset.originalText = button.textContent;
+    if (!button.dataset.originalText) {
+      button.dataset.originalText = button.textContent;
+    }
+
     button.disabled = true;
     button.textContent = '…';
   } else {
     button.disabled = false;
-    button.textContent = button.dataset.originalText || button.textContent;
+    button.textContent =
+      button.dataset.originalText || button.textContent;
+
+    delete button.dataset.originalText;
   }
 }
 
@@ -87,7 +120,8 @@ function safeUrl(url) {
     if (!value) return null;
 
     const normalized =
-      value.startsWith('http://') || value.startsWith('https://')
+      value.startsWith('http://') ||
+      value.startsWith('https://')
         ? value
         : `https://${value}`;
 
@@ -127,30 +161,34 @@ function bindIfExists(id, eventName, callback) {
   }
 }
 
-const TYPE_LABELS = {
-  gallery: 'Galerie',
-  museum: 'Musée',
-  theater: 'Théâtre',
-  concert: 'Concert',
-  cultural_center: 'Centre culturel',
-  library: 'Bibliothèque',
-  cinema: 'Cinéma',
-  other: 'Autre'
-};
+function normalizeNullableNumber(value) {
+  if (value === '' || value === null || value === undefined) {
+    return null;
+  }
 
-const STATUS_LABELS = {
-  prospect: 'Prospect',
-  contacted: 'Contacté',
-  negotiating: 'En négociation',
-  contracted: 'Contrat',
-  archived: 'Archivé'
-};
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : null;
+}
+
+function requireCurrentUser() {
+  if (!currentUser?.id) {
+    throw new Error(
+      'Session expirée. Déconnecte-toi puis reconnecte-toi.'
+    );
+  }
+
+  return currentUser;
+}
 
 // ─────────────────────────────────────────────
-// 4. INITIALISATION
+// 5. INITIALISATION
 // ─────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', initializeApplication);
+document.addEventListener(
+  'DOMContentLoaded',
+  initializeApplication
+);
 
 async function initializeApplication() {
   if (!window.supabase?.createClient) {
@@ -175,7 +213,6 @@ async function initializeApplication() {
     return;
   }
 
-  // Un seul client Supabase dans toute l'application.
   db = window.supabase.createClient(
     SUPABASE_URL,
     SUPABASE_ANON_KEY
@@ -196,7 +233,8 @@ function showSetupError(message) {
     banner.classList.remove('hidden');
   }
 
-  const authBox = getElement('auth-screen')?.querySelector('.auth-box');
+  const authBox =
+    getElement('auth-screen')?.querySelector('.auth-box');
 
   if (authBox) {
     authBox.innerHTML = `
@@ -210,35 +248,54 @@ function showSetupError(message) {
 }
 
 // ─────────────────────────────────────────────
-// 5. AUTHENTIFICATION
+// 6. AUTHENTIFICATION
 // ─────────────────────────────────────────────
 
 async function restoreSession() {
   showScreen('auth');
 
-  const { data, error } = await db.auth.getSession();
+  try {
+    const { data, error } = await db.auth.getSession();
 
-  if (error) {
-    showToast(`Erreur de session : ${error.message}`, 'error');
+    if (error) throw error;
+
+    if (data?.session?.user) {
+      await onAuthSuccess(data.session.user);
+    }
+  } catch (error) {
+    console.error(error);
+
+    showToast(
+      `Erreur de session : ${error.message || error}`,
+      'error'
+    );
   }
 
-  if (data?.session?.user) {
-    await onAuthSuccess(data.session.user);
-  }
+  db.auth.onAuthStateChange((event, session) => {
+    window.setTimeout(async () => {
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        onLogout();
+        return;
+      }
 
-  db.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_OUT' || !session) {
-      onLogout();
-      return;
-    }
-
-    if (event === 'SIGNED_IN') {
-      await onAuthSuccess(session.user);
-    }
+      if (
+        event === 'SIGNED_IN' ||
+        event === 'USER_UPDATED'
+      ) {
+        await onAuthSuccess(session.user);
+      }
+    }, 0);
   });
 }
 
 async function onAuthSuccess(user) {
+  if (!user?.id) {
+    onLogout();
+    return;
+  }
+
+  currentUser = user;
+
   const userEmail = getElement('user-email');
 
   if (userEmail) {
@@ -250,17 +307,24 @@ async function onAuthSuccess(user) {
 }
 
 function onLogout() {
+  currentUser = null;
   places = [];
   editingId = null;
+  favoritesOnly = false;
 
   clearMarkers();
 
   const tbody = getElement('places-tbody');
   const userEmail = getElement('user-email');
+  const favoriteButton = getElement('btn-my-locations');
 
   if (tbody) tbody.innerHTML = '';
   if (userEmail) userEmail.textContent = '';
 
+  favoriteButton?.classList.remove('btn-primary');
+  favoriteButton?.classList.add('btn-secondary');
+
+  setStatus('');
   showScreen('auth');
   resetAuthForm();
 }
@@ -288,7 +352,9 @@ function bindAuth() {
 
       button.classList.add('active');
 
-      const isRegister = button.dataset.tab === 'register';
+      const isRegister =
+        button.dataset.tab === 'register';
+
       const submitButton = getElement('auth-submit');
       const confirmGroup = getElement('confirm-group');
       const errorElement = getElement('auth-error');
@@ -300,7 +366,9 @@ function bindAuth() {
       }
 
       if (confirmGroup) {
-        confirmGroup.style.display = isRegister ? 'flex' : 'none';
+        confirmGroup.style.display = isRegister
+          ? 'flex'
+          : 'none';
       }
 
       errorElement?.classList.add('hidden');
@@ -318,15 +386,23 @@ function bindAuth() {
     errorElement?.classList.add('hidden');
     setLoading(submitButton, true);
 
-    const email = getElement('auth-email')?.value.trim() || '';
-    const password = getElement('auth-password')?.value || '';
+    const email =
+      getElement('auth-email')?.value.trim() || '';
 
-    const activeTab = document.querySelector('.tab-btn.active');
-    const isRegister = activeTab?.dataset.tab === 'register';
+    const password =
+      getElement('auth-password')?.value || '';
+
+    const activeTab =
+      document.querySelector('.tab-btn.active');
+
+    const isRegister =
+      activeTab?.dataset.tab === 'register';
 
     try {
       if (!email || !password) {
-        throw new Error('Email et mot de passe obligatoires.');
+        throw new Error(
+          'Email et mot de passe obligatoires.'
+        );
       }
 
       if (password.length < 6) {
@@ -336,36 +412,50 @@ function bindAuth() {
       }
 
       if (isRegister) {
-        const confirmation = getElement('auth-confirm')?.value || '';
+        const confirmation =
+          getElement('auth-confirm')?.value || '';
 
         if (password !== confirmation) {
-          throw new Error('Les mots de passe ne correspondent pas.');
+          throw new Error(
+            'Les mots de passe ne correspondent pas.'
+          );
         }
 
-        const { error } = await db.auth.signUp({
+        const { data, error } = await db.auth.signUp({
           email,
           password
         });
 
         if (error) throw error;
 
+        if (data?.session?.user) {
+          currentUser = data.session.user;
+        }
+
         showToast(
-          'Compte créé. Vérifie éventuellement ton email.',
+          data?.session
+            ? 'Compte créé et connexion réussie.'
+            : 'Compte créé. Vérifie ton email pour confirmer ton inscription.',
           'success'
         );
 
         resetAuthForm();
       } else {
-        const { error } = await db.auth.signInWithPassword({
-          email,
-          password
-        });
+        const { data, error } =
+          await db.auth.signInWithPassword({
+            email,
+            password
+          });
 
         if (error) throw error;
+
+        currentUser = data?.user || null;
 
         showToast('Connexion réussie.', 'success');
       }
     } catch (error) {
+      console.error(error);
+
       if (errorElement) {
         errorElement.textContent =
           error.message || 'Erreur de connexion.';
@@ -378,10 +468,15 @@ function bindAuth() {
   });
 
   bindIfExists('btn-logout', 'click', async () => {
-    const { error } = await db.auth.signOut();
+    try {
+      const { error } = await db.auth.signOut();
 
-    if (error) {
-      showToast(`Erreur : ${error.message}`, 'error');
+      if (error) throw error;
+    } catch (error) {
+      showToast(
+        `Erreur : ${error.message || error}`,
+        'error'
+      );
     }
   });
 }
@@ -396,7 +491,10 @@ function resetAuthForm() {
   form?.reset();
 
   if (confirmation) confirmation.value = '';
-  if (confirmGroup) confirmGroup.style.display = 'none';
+
+  if (confirmGroup) {
+    confirmGroup.style.display = 'none';
+  }
 
   errorElement?.classList.add('hidden');
 
@@ -413,29 +511,33 @@ function resetAuthForm() {
   }
 }
 
-/* ==================================================
-   CARTE LEAFLET
-   ================================================== */
-
-const FRANCE_CENTER = [46.603354, 1.888334];
-const FRANCE_ZOOM = 6;
+// ─────────────────────────────────────────────
+// 7. CARTE LEAFLET
+// ─────────────────────────────────────────────
 
 function initMap() {
   const mapElement = getElement('map');
 
   if (!mapElement) {
     console.error('Élément HTML #map introuvable.');
-    showToast('Conteneur de carte introuvable.', 'error');
+    showToast(
+      'Conteneur de carte introuvable.',
+      'error'
+    );
+
     return null;
   }
 
   if (!window.L) {
     console.error('Leaflet n’est pas chargé.');
-    showToast('Impossible de charger Leaflet.', 'error');
+    showToast(
+      'Impossible de charger Leaflet.',
+      'error'
+    );
+
     return null;
   }
 
-  /* La carte existe déjà */
   if (map) {
     window.setTimeout(() => {
       map.invalidateSize(true);
@@ -453,18 +555,18 @@ function initMap() {
 
   map.setView(FRANCE_CENTER, FRANCE_ZOOM);
 
-  /* Fond de carte clair OpenStreetMap */
-  window.L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {
-      maxZoom: 19,
-      subdomains: ['a', 'b', 'c'],
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'
-    }
-  ).addTo(map);
+  window.L
+    .tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {
+        maxZoom: 19,
+        subdomains: ['a', 'b', 'c'],
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>'
+      }
+    )
+    .addTo(map);
 
-  /* Clic sur la carte : remplissage des coordonnées */
   map.on('click', (event) => {
     const lat = event.latlng.lat.toFixed(6);
     const lng = event.latlng.lng.toFixed(6);
@@ -478,10 +580,8 @@ function initMap() {
     showCoordinateTooltip(lat, lng);
   });
 
-  /* Correction Leaflet lorsque le conteneur était caché */
   window.setTimeout(() => {
     map?.invalidateSize(true);
-    map?.setView(FRANCE_CENTER, FRANCE_ZOOM);
   }, 150);
 
   return map;
@@ -495,11 +595,14 @@ function showCoordinateTooltip(lat, lng) {
   tooltip.textContent = `📍 ${lat}, ${lng}`;
   tooltip.classList.remove('hidden');
 
-  window.clearTimeout(window.coordinateTooltipTimer);
+  window.clearTimeout(
+    window.coordinateTooltipTimer
+  );
 
-  window.coordinateTooltipTimer = window.setTimeout(() => {
-    tooltip.classList.add('hidden');
-  }, 3000);
+  window.coordinateTooltipTimer =
+    window.setTimeout(() => {
+      tooltip.classList.add('hidden');
+    }, 3000);
 }
 
 function createMarkerIcon(type) {
@@ -556,12 +659,7 @@ function renderMarkers() {
 
   clearMarkers();
 
-  const filteredPlaces =
-    typeof getFilteredPlaces === 'function'
-      ? getFilteredPlaces()
-      : [];
-
-  filteredPlaces.forEach((place) => {
+  getFilteredPlaces().forEach((place) => {
     const lat = Number(place.lat);
     const lng = Number(place.lng);
 
@@ -576,10 +674,12 @@ function renderMarkers() {
       return;
     }
 
-    const marker = window.L.marker([lat, lng], {
-      icon: createMarkerIcon(place.type),
-      title: place.name || 'Lieu culturel'
-    }).addTo(map);
+    const marker = window.L
+      .marker([lat, lng], {
+        icon: createMarkerIcon(place.type),
+        title: place.name || 'Lieu culturel'
+      })
+      .addTo(map);
 
     marker.bindPopup(createMarkerPopup(place), {
       maxWidth: 320,
@@ -587,10 +687,13 @@ function renderMarkers() {
     });
 
     marker.on('popupopen', (event) => {
-      const popupElement = event.popup.getElement();
-      const editButton = popupElement?.querySelector(
-        '[data-action="edit-place"]'
-      );
+      const popupElement =
+        event.popup.getElement();
+
+      const editButton =
+        popupElement?.querySelector(
+          '[data-action="edit-place"]'
+        );
 
       if (!editButton) return;
 
@@ -605,7 +708,7 @@ function renderMarkers() {
     });
 
     markers.push({
-      id: place.id,
+      id: String(place.id),
       marker
     });
   });
@@ -643,7 +746,9 @@ function createMarkerPopup(place) {
         </span>
 
         <span class="badge-status ${esc(status)}">
-          ${esc(STATUS_LABELS[status] || 'Prospect')}
+          ${esc(
+            STATUS_LABELS[status] || 'Prospect'
+          )}
         </span>
       </div>
 
@@ -668,7 +773,9 @@ function createMarkerPopup(place) {
           ? `
             <div class="map-popup-line">
               ✉️
-              <a href="mailto:${esc(place.contact_email)}">
+              <a href="mailto:${esc(
+                place.contact_email
+              )}">
                 ${esc(place.contact_email)}
               </a>
             </div>
@@ -724,7 +831,10 @@ function clearMarkers() {
   }
 
   markers.forEach((item) => {
-    if (item?.marker && map?.hasLayer(item.marker)) {
+    if (
+      item?.marker &&
+      map?.hasLayer(item.marker)
+    ) {
       map.removeLayer(item.marker);
     }
   });
@@ -735,7 +845,7 @@ function clearMarkers() {
 function fitBounds() {
   if (!map) return;
 
-  if (!Array.isArray(markers) || markers.length === 0) {
+  if (markers.length === 0) {
     map.setView(FRANCE_CENTER, FRANCE_ZOOM);
     return;
   }
@@ -754,7 +864,8 @@ function fitBounds() {
     return;
   }
 
-  const bounds = window.L.latLngBounds(positions);
+  const bounds =
+    window.L.latLngBounds(positions);
 
   map.fitBounds(bounds, {
     padding: [45, 45],
@@ -769,10 +880,6 @@ function showMapView() {
   listPanel?.classList.add('hidden');
   mapPanel?.classList.remove('hidden');
 
-  /*
-   * Leaflet doit être initialisé uniquement lorsque
-   * son conteneur est visible.
-   */
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
       const leafletMap = initMap();
@@ -788,7 +895,10 @@ function showMapView() {
         if (markers.length > 0) {
           fitBounds();
         } else {
-          leafletMap.setView(FRANCE_CENTER, FRANCE_ZOOM);
+          leafletMap.setView(
+            FRANCE_CENTER,
+            FRANCE_ZOOM
+          );
         }
       }, 150);
     });
@@ -804,111 +914,167 @@ function showListView() {
 }
 
 function bindMap() {
-  bindIfExists('btn-fit-markers', 'click', () => {
-    map?.invalidateSize(true);
-    fitBounds();
-  });
-
-  bindIfExists('filter-view', 'change', (event) => {
-    currentView = event.target.value;
-
-    if (currentView === 'map') {
-      showMapView();
-    } else {
-      showListView();
+  bindIfExists(
+    'btn-fit-markers',
+    'click',
+    () => {
+      map?.invalidateSize(true);
+      fitBounds();
     }
-  });
+  );
 
-  bindIfExists('btn-geolocate', 'click', () => {
-    if (!navigator.geolocation) {
-      showToast('Géolocalisation non disponible.', 'error');
-      return;
-    }
+  bindIfExists(
+    'filter-view',
+    'change',
+    (event) => {
+      currentView = event.target.value;
 
-    const geolocationButton = getElement('btn-geolocate');
-
-    if (geolocationButton) {
-      geolocationButton.disabled = true;
-      geolocationButton.textContent = '⏳ Localisation…';
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lat = position.coords.latitude.toFixed(6);
-        const lng = position.coords.longitude.toFixed(6);
-
-        const latInput = getElement('place-lat');
-        const lngInput = getElement('place-lng');
-
-        if (latInput) latInput.value = lat;
-        if (lngInput) lngInput.value = lng;
-
-        showCoordinateTooltip(lat, lng);
-        showToast('Position définie.', 'success');
-
-        if (map && currentView === 'map') {
-          map.setView([Number(lat), Number(lng)], 14);
-        }
-
-        resetGeolocationButton();
-      },
-      (error) => {
-        let message = 'Impossible d’obtenir ta position.';
-
-        if (error.code === error.PERMISSION_DENIED) {
-          message = 'Autorisation de géolocalisation refusée.';
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          message = 'Position actuellement indisponible.';
-        } else if (error.code === error.TIMEOUT) {
-          message = 'La géolocalisation a expiré.';
-        }
-
-        showToast(message, 'error');
-        resetGeolocationButton();
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
+      if (currentView === 'map') {
+        showMapView();
+      } else {
+        showListView();
       }
-    );
-  });
+    }
+  );
+
+  bindIfExists(
+    'btn-geolocate',
+    'click',
+    () => {
+      if (!navigator.geolocation) {
+        showToast(
+          'Géolocalisation non disponible.',
+          'error'
+        );
+
+        return;
+      }
+
+      const geolocationButton =
+        getElement('btn-geolocate');
+
+      if (geolocationButton) {
+        geolocationButton.disabled = true;
+        geolocationButton.textContent =
+          '⏳ Localisation…';
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat =
+            position.coords.latitude.toFixed(6);
+
+          const lng =
+            position.coords.longitude.toFixed(6);
+
+          const latInput =
+            getElement('place-lat');
+
+          const lngInput =
+            getElement('place-lng');
+
+          if (latInput) latInput.value = lat;
+          if (lngInput) lngInput.value = lng;
+
+          showCoordinateTooltip(lat, lng);
+          showToast(
+            'Position définie.',
+            'success'
+          );
+
+          if (map && currentView === 'map') {
+            map.setView(
+              [Number(lat), Number(lng)],
+              14
+            );
+          }
+
+          resetGeolocationButton();
+        },
+        (error) => {
+          let message =
+            'Impossible d’obtenir ta position.';
+
+          if (
+            error.code === error.PERMISSION_DENIED
+          ) {
+            message =
+              'Autorisation de géolocalisation refusée.';
+          } else if (
+            error.code ===
+            error.POSITION_UNAVAILABLE
+          ) {
+            message =
+              'Position actuellement indisponible.';
+          } else if (
+            error.code === error.TIMEOUT
+          ) {
+            message =
+              'La géolocalisation a expiré.';
+          }
+
+          showToast(message, 'error');
+          resetGeolocationButton();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        }
+      );
+    }
+  );
 }
 
 function resetGeolocationButton() {
-  const geolocationButton = getElement('btn-geolocate');
+  const button = getElement('btn-geolocate');
 
-  if (!geolocationButton) return;
+  if (!button) return;
 
-  geolocationButton.disabled = false;
-  geolocationButton.textContent = '📍 Géolocaliser';
+  button.disabled = false;
+  button.textContent = '📍 Géolocaliser';
 }
 
 // ─────────────────────────────────────────────
-// 7. CHARGEMENT ET CRUD
+// 8. CHARGEMENT ET CRUD
 // ─────────────────────────────────────────────
 
 async function loadPlaces() {
   setStatus('Chargement…');
 
   try {
+    const user = requireCurrentUser();
+
     const { data, error } = await db
       .from('places')
       .select('*')
-      .order('created_at', { ascending: false });
+      .eq('owner_id', user.id)
+      .order('created_at', {
+        ascending: false
+      });
 
     if (error) throw error;
 
-    places = data || [];
+    places = Array.isArray(data) ? data : [];
 
     refreshViews();
 
-    setStatus(`${places.length} lieu(x) chargé(s)`);
+    setStatus(
+      `${places.length} lieu(x) chargé(s)`
+    );
   } catch (error) {
-    console.error(error);
+    console.error(
+      'Erreur loadPlaces :',
+      error
+    );
+
+    places = [];
+    refreshViews();
 
     showToast(
-      `Erreur de chargement : ${error.message || error}`,
+      `Erreur de chargement : ${
+        error.message || error
+      }`,
       'error'
     );
 
@@ -917,35 +1083,55 @@ async function loadPlaces() {
 }
 
 async function savePlace(formData) {
-  const saveButton = getElement('btn-save-place');
-  const errorElement = getElement('place-form-error');
+  const saveButton =
+    getElement('btn-save-place');
+
+  const errorElement =
+    getElement('place-form-error');
 
   setLoading(saveButton, true);
+  errorElement?.classList.add('hidden');
 
   try {
+    const user = requireCurrentUser();
+
     const payload = {
       name: formData.name,
       type: formData.type || 'other',
-      description: formData.description || null,
+      description:
+        formData.description || null,
       address: formData.address || null,
       city: formData.city || null,
-      postal_code: formData.postal_code || null,
+      postal_code:
+        formData.postal_code || null,
       country: formData.country || 'France',
-      lat: formData.lat,
-      lng: formData.lng,
-      contact_email: formData.contact_email || null,
+      lat: normalizeNullableNumber(
+        formData.lat
+      ),
+      lng: normalizeNullableNumber(
+        formData.lng
+      ),
+      contact_email:
+        formData.contact_email || null,
       phone: formData.phone || null,
-      website: safeUrl(formData.website),
+      website:
+        safeUrl(formData.website) || null,
       tags: formData.tags || null,
-      status: formData.status || 'prospect',
-      priority: formData.priority || 'medium',
+      status:
+        formData.status || 'prospect',
+      priority:
+        formData.priority || 'medium',
       favorite: Boolean(formData.favorite),
-      surface_m2: formData.surface_m2,
-      rent_monthly: formData.rent_monthly,
+      surface_m2: normalizeNullableNumber(
+        formData.surface_m2
+      ),
+      rent_monthly: normalizeNullableNumber(
+        formData.rent_monthly
+      ),
       notes: formData.notes || null,
-      next_action: formData.next_action || null,
-      next_date: formData.next_date || null,
-      updated_at: new Date().toISOString()
+      next_action:
+        formData.next_action || null,
+      next_date: formData.next_date || null
     };
 
     if (editingId) {
@@ -953,20 +1139,33 @@ async function savePlace(formData) {
         .from('places')
         .update(payload)
         .eq('id', editingId)
+        .eq('owner_id', user.id)
         .select()
         .single();
 
       if (error) throw error;
 
       places = places.map((place) =>
-        place.id === editingId ? data : place
+        String(place.id) === String(editingId)
+          ? data
+          : place
       );
 
-      showToast('Lieu mis à jour.', 'success');
+      showToast(
+        'Lieu mis à jour.',
+        'success'
+      );
     } else {
+      const insertPayload = {
+        ...payload,
+
+        // Indispensable pour la politique RLS.
+        owner_id: user.id
+      };
+
       const { data, error } = await db
         .from('places')
-        .insert(payload)
+        .insert(insertPayload)
         .select()
         .single();
 
@@ -980,17 +1179,18 @@ async function savePlace(formData) {
     refreshViews();
     closeModal();
   } catch (error) {
-    console.error(error);
-
-    showToast(
-      `Erreur : ${error.message || error}`,
-      'error'
+    console.error(
+      'Erreur savePlace :',
+      error
     );
 
-    if (errorElement) {
-      errorElement.textContent =
-        error.message || 'Erreur inconnue';
+    const message =
+      error.message || 'Erreur inconnue';
 
+    showToast(`Erreur : ${message}`, 'error');
+
+    if (errorElement) {
+      errorElement.textContent = message;
       errorElement.classList.remove('hidden');
     }
   } finally {
@@ -1008,42 +1208,71 @@ async function deletePlace(id) {
   if (!confirmed) return;
 
   try {
+    const user = requireCurrentUser();
+
     const { error } = await db
       .from('places')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('owner_id', user.id);
 
     if (error) throw error;
 
-    places = places.filter((place) => place.id !== id);
+    places = places.filter(
+      (place) =>
+        String(place.id) !== String(id)
+    );
 
     refreshViews();
     closeModal();
 
-    showToast('Lieu supprimé.', 'success');
-  } catch (error) {
     showToast(
-      `Erreur de suppression : ${error.message || error}`,
+      'Lieu supprimé.',
+      'success'
+    );
+  } catch (error) {
+    console.error(
+      'Erreur deletePlace :',
+      error
+    );
+
+    showToast(
+      `Erreur de suppression : ${
+        error.message || error
+      }`,
       'error'
     );
   }
 }
 
 // ─────────────────────────────────────────────
-// 8. FILTRES ET AFFICHAGE
+// 9. FILTRES ET AFFICHAGE
 // ─────────────────────────────────────────────
 
 function getFilteredPlaces() {
   const search =
-    getElement('filter-search')?.value.toLowerCase().trim() || '';
+    getElement('filter-search')
+      ?.value.toLowerCase()
+      .trim() || '';
 
-  const type = getElement('filter-type')?.value || '';
-  const status = getElement('filter-status')?.value || '';
+  const type =
+    getElement('filter-type')?.value || '';
+
+  const status =
+    getElement('filter-status')?.value || '';
 
   return places.filter((place) => {
-    if (favoritesOnly && !place.favorite) return false;
-    if (type && place.type !== type) return false;
-    if (status && place.status !== status) return false;
+    if (favoritesOnly && !place.favorite) {
+      return false;
+    }
+
+    if (type && place.type !== type) {
+      return false;
+    }
+
+    if (status && place.status !== status) {
+      return false;
+    }
 
     if (search) {
       const content = [
@@ -1060,7 +1289,9 @@ function getFilteredPlaces() {
         .join(' ')
         .toLowerCase();
 
-      if (!content.includes(search)) return false;
+      if (!content.includes(search)) {
+        return false;
+      }
     }
 
     return true;
@@ -1068,15 +1299,22 @@ function getFilteredPlaces() {
 }
 
 function renderPlaces() {
-  const filteredPlaces = getFilteredPlaces();
+  const filteredPlaces =
+    getFilteredPlaces();
 
-  const countElement = getElement('place-count');
-  const tbody = getElement('places-tbody');
-  const noPlaces = getElement('no-places');
+  const countElement =
+    getElement('place-count');
+
+  const tbody =
+    getElement('places-tbody');
+
+  const noPlaces =
+    getElement('no-places');
 
   if (countElement) {
     countElement.textContent =
-      `${filteredPlaces.length} / ${places.length} lieu(x)`;
+      `${filteredPlaces.length} / ` +
+      `${places.length} lieu(x)`;
   }
 
   if (!tbody) return;
@@ -1091,14 +1329,25 @@ function renderPlaces() {
 
   tbody.innerHTML = filteredPlaces
     .map((place) => {
-      const websiteUrl = safeUrl(place.website);
+      const websiteUrl =
+        safeUrl(place.website);
+
+      const id = esc(String(place.id));
 
       const favoriteButton = `
         <button
           type="button"
-          class="btn-icon ${place.favorite ? 'active-star' : ''}"
-          onclick="event.stopPropagation(); toggleFavorite('${place.id}')"
-          title="Favori">
+          class="btn-icon ${
+            place.favorite
+              ? 'active-star'
+              : ''
+          }"
+          onclick="
+            event.stopPropagation();
+            toggleFavorite('${id}');
+          "
+          title="Favori"
+        >
           ${place.favorite ? '⭐' : '☆'}
         </button>
       `;
@@ -1111,21 +1360,32 @@ function renderPlaces() {
             rel="noopener noreferrer"
             onclick="event.stopPropagation()"
             style="color:#58a6ff"
-            title="Ouvrir le site">
+            title="Ouvrir le site"
+          >
             🔗
           </a>
         `
         : '';
 
       return `
-        <tr onclick="openEditModal('${place.id}')">
+        <tr onclick="openEditModal('${id}')">
           <td class="td-name">
-            ${esc(place.name)}
+            ${esc(
+              place.name || 'Lieu sans nom'
+            )}
           </td>
 
           <td>
-            <span class="badge-type ${esc(place.type)}">
-              ${esc(TYPE_LABELS[place.type] || place.type || 'Autre')}
+            <span
+              class="badge-type ${esc(
+                place.type || 'other'
+              )}"
+            >
+              ${esc(
+                TYPE_LABELS[place.type] ||
+                  place.type ||
+                  'Autre'
+              )}
             </span>
           </td>
 
@@ -1134,11 +1394,15 @@ function renderPlaces() {
           </td>
 
           <td class="td-status">
-            <span class="badge-status ${esc(place.status)}">
+            <span
+              class="badge-status ${esc(
+                place.status || 'prospect'
+              )}"
+            >
               ${esc(
                 STATUS_LABELS[place.status] ||
-                place.status ||
-                'Prospect'
+                  place.status ||
+                  'Prospect'
               )}
             </span>
           </td>
@@ -1151,7 +1415,12 @@ function renderPlaces() {
             <button
               type="button"
               class="btn-secondary"
-              onclick="event.stopPropagation(); openEditModal('${place.id}')">
+              onclick="
+                event.stopPropagation();
+                openEditModal('${id}');
+              "
+              title="Modifier"
+            >
               ✏️
             </button>
 
@@ -1164,29 +1433,54 @@ function renderPlaces() {
 }
 
 async function toggleFavorite(id) {
-  const place = places.find((item) => item.id === id);
+  const place = places.find(
+    (item) =>
+      String(item.id) === String(id)
+  );
 
   if (!place) return;
 
-  const favorite = !place.favorite;
+  const previousValue =
+    Boolean(place.favorite);
+
+  const favorite = !previousValue;
 
   try {
-    const { error } = await db
+    const user = requireCurrentUser();
+
+    place.favorite = favorite;
+    refreshViews();
+
+    const { data, error } = await db
       .from('places')
-      .update({
-        favorite,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id);
+      .update({ favorite })
+      .eq('id', id)
+      .eq('owner_id', user.id)
+      .select()
+      .single();
 
     if (error) throw error;
 
-    place.favorite = favorite;
+    places = places.map((item) =>
+      String(item.id) === String(id)
+        ? data
+        : item
+    );
 
     refreshViews();
   } catch (error) {
+    place.favorite = previousValue;
+    refreshViews();
+
+    console.error(
+      'Erreur toggleFavorite :',
+      error
+    );
+
     showToast(
-      `Erreur favoris : ${error.message || error}`,
+      `Erreur favoris : ${
+        error.message || error
+      }`,
       'error'
     );
   }
@@ -1195,106 +1489,261 @@ async function toggleFavorite(id) {
 window.toggleFavorite = toggleFavorite;
 
 // ─────────────────────────────────────────────
-// 9. ÉVÉNEMENTS DES LIEUX
+// 10. ÉVÉNEMENTS DES LIEUX
 // ─────────────────────────────────────────────
 
 function bindPlaces() {
-  ['filter-search', 'filter-type', 'filter-status'].forEach((id) => {
+  [
+    'filter-search',
+    'filter-type',
+    'filter-status'
+  ].forEach((id) => {
     bindIfExists(id, 'input', refreshViews);
     bindIfExists(id, 'change', refreshViews);
   });
 
-  bindIfExists('btn-my-locations', 'click', () => {
-    favoritesOnly = !favoritesOnly;
+  bindIfExists(
+    'btn-my-locations',
+    'click',
+    () => {
+      favoritesOnly = !favoritesOnly;
 
-    const button = getElement('btn-my-locations');
+      const button =
+        getElement('btn-my-locations');
 
-    button?.classList.toggle('btn-primary', favoritesOnly);
-    button?.classList.toggle('btn-secondary', !favoritesOnly);
+      button?.classList.toggle(
+        'btn-primary',
+        favoritesOnly
+      );
 
-    refreshViews();
-  });
+      button?.classList.toggle(
+        'btn-secondary',
+        !favoritesOnly
+      );
 
-  bindIfExists('btn-add-place', 'click', () => {
-    editingId = null;
-    openModal(null);
-  });
-
-  bindIfExists('modal-close', 'click', closeModal);
-  bindIfExists('btn-cancel-place', 'click', closeModal);
-
-  bindIfExists('btn-delete-place', 'click', () => {
-    deletePlace(editingId);
-  });
-
-  bindIfExists('place-modal', 'click', (event) => {
-    if (event.target === event.currentTarget) {
-      closeModal();
+      refreshViews();
     }
-  });
+  );
 
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      closeModal();
+  bindIfExists(
+    'btn-add-place',
+    'click',
+    () => {
+      editingId = null;
+      openModal(null);
     }
-  });
+  );
+
+  bindIfExists(
+    'modal-close',
+    'click',
+    closeModal
+  );
+
+  bindIfExists(
+    'btn-cancel-place',
+    'click',
+    closeModal
+  );
+
+  bindIfExists(
+    'btn-delete-place',
+    'click',
+    () => {
+      if (editingId) {
+        deletePlace(editingId);
+      }
+    }
+  );
+
+  bindIfExists(
+    'place-modal',
+    'click',
+    (event) => {
+      if (event.target === event.currentTarget) {
+        closeModal();
+      }
+    }
+  );
+
+  document.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key === 'Escape') {
+        closeModal();
+      }
+    }
+  );
 
   const form = getElement('place-form');
 
-  form?.addEventListener('submit', (event) => {
-    event.preventDefault();
+  form?.addEventListener(
+    'submit',
+    async (event) => {
+      event.preventDefault();
 
-    getElement('place-form-error')?.classList.add('hidden');
+      const errorElement =
+        getElement('place-form-error');
 
-    const latValue = form.elements['place-lat']?.value;
-    const lngValue = form.elements['place-lng']?.value;
-    const surfaceValue = form.elements['place-surface']?.value;
-    const rentValue = form.elements['place-rent']?.value;
+      errorElement?.classList.add('hidden');
 
-    const formData = {
-      name: form.elements['place-name'].value.trim(),
-      type: form.elements['place-type'].value,
-      description:
-        form.elements['place-description'].value.trim(),
-      address: form.elements['place-address'].value.trim(),
-      city: form.elements['place-city'].value.trim(),
-      postal_code: form.elements['place-postal'].value.trim(),
-      country: form.elements['place-country'].value.trim(),
-      lat: latValue ? Number(latValue) : null,
-      lng: lngValue ? Number(lngValue) : null,
-      contact_email:
-        form.elements['place-email'].value.trim(),
-      phone: form.elements['place-phone'].value.trim(),
-      website: form.elements['place-website'].value.trim(),
-      tags: form.elements['place-tags'].value.trim(),
-      status: form.elements['place-status'].value,
-      priority: form.elements['place-priority'].value,
-      favorite: form.elements['place-favorite'].checked,
-      surface_m2: surfaceValue ? Number(surfaceValue) : null,
-      rent_monthly: rentValue ? Number(rentValue) : null,
-      notes: form.elements['place-notes'].value.trim(),
-      next_action:
-        form.elements['place-next-action'].value.trim(),
-      next_date: form.elements['place-next-date'].value || null
-    };
+      const name =
+        form.elements['place-name']
+          ?.value.trim() || '';
 
-    if (!formData.name) {
-      const errorElement = getElement('place-form-error');
+      const latValue =
+        form.elements['place-lat']?.value;
 
-      if (errorElement) {
-        errorElement.textContent = 'Le nom est obligatoire.';
-        errorElement.classList.remove('hidden');
+      const lngValue =
+        form.elements['place-lng']?.value;
+
+      const surfaceValue =
+        form.elements['place-surface']?.value;
+
+      const rentValue =
+        form.elements['place-rent']?.value;
+
+      const formData = {
+        name,
+
+        type:
+          form.elements['place-type']
+            ?.value || 'other',
+
+        description:
+          form.elements['place-description']
+            ?.value.trim() || '',
+
+        address:
+          form.elements['place-address']
+            ?.value.trim() || '',
+
+        city:
+          form.elements['place-city']
+            ?.value.trim() || '',
+
+        postal_code:
+          form.elements['place-postal']
+            ?.value.trim() || '',
+
+        country:
+          form.elements['place-country']
+            ?.value.trim() || 'France',
+
+        lat: normalizeNullableNumber(
+          latValue
+        ),
+
+        lng: normalizeNullableNumber(
+          lngValue
+        ),
+
+        contact_email:
+          form.elements['place-email']
+            ?.value.trim() || '',
+
+        phone:
+          form.elements['place-phone']
+            ?.value.trim() || '',
+
+        website:
+          form.elements['place-website']
+            ?.value.trim() || '',
+
+        tags:
+          form.elements['place-tags']
+            ?.value.trim() || '',
+
+        status:
+          form.elements['place-status']
+            ?.value || 'prospect',
+
+        priority:
+          form.elements['place-priority']
+            ?.value || 'medium',
+
+        favorite: Boolean(
+          form.elements['place-favorite']
+            ?.checked
+        ),
+
+        surface_m2:
+          normalizeNullableNumber(
+            surfaceValue
+          ),
+
+        rent_monthly:
+          normalizeNullableNumber(
+            rentValue
+          ),
+
+        notes:
+          form.elements['place-notes']
+            ?.value.trim() || '',
+
+        next_action:
+          form.elements['place-next-action']
+            ?.value.trim() || '',
+
+        next_date:
+          form.elements['place-next-date']
+            ?.value || null
+      };
+
+      if (!formData.name) {
+        if (errorElement) {
+          errorElement.textContent =
+            'Le nom est obligatoire.';
+
+          errorElement.classList.remove(
+            'hidden'
+          );
+        }
+
+        return;
       }
 
-      return;
-    }
+      if (
+        formData.lat !== null &&
+        (formData.lat < -90 ||
+          formData.lat > 90)
+      ) {
+        if (errorElement) {
+          errorElement.textContent =
+            'La latitude doit être comprise entre -90 et 90.';
 
-    savePlace(formData);
-  });
+          errorElement.classList.remove(
+            'hidden'
+          );
+        }
+
+        return;
+      }
+
+      if (
+        formData.lng !== null &&
+        (formData.lng < -180 ||
+          formData.lng > 180)
+      ) {
+        if (errorElement) {
+          errorElement.textContent =
+            'La longitude doit être comprise entre -180 et 180.';
+
+          errorElement.classList.remove(
+            'hidden'
+          );
+        }
+
+        return;
+      }
+
+      await savePlace(formData);
+    }
+  );
 }
 
 // ─────────────────────────────────────────────
-// 10. MODALE
+// 11. MODALE
 // ─────────────────────────────────────────────
 
 function setFormValue(form, name, value) {
@@ -1313,54 +1762,187 @@ function openModal(place) {
   const modal = getElement('place-modal');
   const form = getElement('place-form');
   const title = getElement('modal-title');
-  const deleteButton = getElement('btn-delete-place');
-  const errorElement = getElement('place-form-error');
+
+  const deleteButton =
+    getElement('btn-delete-place');
+
+  const errorElement =
+    getElement('place-form-error');
 
   if (!modal || !form) return;
 
   errorElement?.classList.add('hidden');
 
   if (place) {
-    editingId = place.id;
+    editingId = String(place.id);
 
-    if (title) title.textContent = '✏️ Modifier le lieu';
+    if (title) {
+      title.textContent =
+        '✏️ Modifier le lieu';
+    }
 
     deleteButton?.classList.remove('hidden');
 
-    setFormValue(form, 'place-name', place.name);
-    setFormValue(form, 'place-type', place.type || 'other');
-    setFormValue(form, 'place-description', place.description);
-    setFormValue(form, 'place-address', place.address);
-    setFormValue(form, 'place-city', place.city);
-    setFormValue(form, 'place-postal', place.postal_code);
-    setFormValue(form, 'place-country', place.country || 'France');
-    setFormValue(form, 'place-lat', place.lat);
-    setFormValue(form, 'place-lng', place.lng);
-    setFormValue(form, 'place-email', place.contact_email);
-    setFormValue(form, 'place-phone', place.phone);
-    setFormValue(form, 'place-website', place.website);
-    setFormValue(form, 'place-tags', place.tags);
-    setFormValue(form, 'place-status', place.status || 'prospect');
-    setFormValue(form, 'place-priority', place.priority || 'medium');
-    setFormValue(form, 'place-favorite', place.favorite);
-    setFormValue(form, 'place-surface', place.surface_m2);
-    setFormValue(form, 'place-rent', place.rent_monthly);
-    setFormValue(form, 'place-notes', place.notes);
-    setFormValue(form, 'place-next-action', place.next_action);
-    setFormValue(form, 'place-next-date', place.next_date);
+    setFormValue(
+      form,
+      'place-name',
+      place.name
+    );
+
+    setFormValue(
+      form,
+      'place-type',
+      place.type || 'other'
+    );
+
+    setFormValue(
+      form,
+      'place-description',
+      place.description
+    );
+
+    setFormValue(
+      form,
+      'place-address',
+      place.address
+    );
+
+    setFormValue(
+      form,
+      'place-city',
+      place.city
+    );
+
+    setFormValue(
+      form,
+      'place-postal',
+      place.postal_code
+    );
+
+    setFormValue(
+      form,
+      'place-country',
+      place.country || 'France'
+    );
+
+    setFormValue(
+      form,
+      'place-lat',
+      place.lat
+    );
+
+    setFormValue(
+      form,
+      'place-lng',
+      place.lng
+    );
+
+    setFormValue(
+      form,
+      'place-email',
+      place.contact_email
+    );
+
+    setFormValue(
+      form,
+      'place-phone',
+      place.phone
+    );
+
+    setFormValue(
+      form,
+      'place-website',
+      place.website
+    );
+
+    setFormValue(
+      form,
+      'place-tags',
+      place.tags
+    );
+
+    setFormValue(
+      form,
+      'place-status',
+      place.status || 'prospect'
+    );
+
+    setFormValue(
+      form,
+      'place-priority',
+      place.priority || 'medium'
+    );
+
+    setFormValue(
+      form,
+      'place-favorite',
+      place.favorite
+    );
+
+    setFormValue(
+      form,
+      'place-surface',
+      place.surface_m2
+    );
+
+    setFormValue(
+      form,
+      'place-rent',
+      place.rent_monthly
+    );
+
+    setFormValue(
+      form,
+      'place-notes',
+      place.notes
+    );
+
+    setFormValue(
+      form,
+      'place-next-action',
+      place.next_action
+    );
+
+    setFormValue(
+      form,
+      'place-next-date',
+      place.next_date
+    );
   } else {
     editingId = null;
 
-    if (title) title.textContent = '➕ Ajouter un lieu';
+    if (title) {
+      title.textContent =
+        '➕ Ajouter un lieu';
+    }
 
     deleteButton?.classList.add('hidden');
 
     form.reset();
 
-    setFormValue(form, 'place-country', 'France');
-    setFormValue(form, 'place-status', 'prospect');
-    setFormValue(form, 'place-priority', 'medium');
-    setFormValue(form, 'place-type', 'gallery');
+    setFormValue(
+      form,
+      'place-country',
+      'France'
+    );
+
+    setFormValue(
+      form,
+      'place-status',
+      'prospect'
+    );
+
+    setFormValue(
+      form,
+      'place-priority',
+      'medium'
+    );
+
+    setFormValue(
+      form,
+      'place-type',
+      'gallery'
+    );
   }
 
   modal.classList.remove('hidden');
@@ -1371,18 +1953,27 @@ function openModal(place) {
 }
 
 function closeModal() {
-  getElement('place-modal')?.classList.add('hidden');
+  getElement('place-modal')
+    ?.classList.add('hidden');
 
   editingId = null;
 
-  getElement('place-form-error')?.classList.add('hidden');
+  getElement('place-form-error')
+    ?.classList.add('hidden');
 }
 
 window.openEditModal = function openEditModal(id) {
-  const place = places.find((item) => item.id === id);
+  const place = places.find(
+    (item) =>
+      String(item.id) === String(id)
+  );
 
   if (!place) {
-    showToast('Lieu introuvable.', 'error');
+    showToast(
+      'Lieu introuvable.',
+      'error'
+    );
+
     return;
   }
 
