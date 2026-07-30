@@ -9,8 +9,8 @@
 //    votre projet Supabase.
 // ─────────────────────────────────────────────
 const CONFIG = {
-  SUPABASE_URL:  'YOUR_SUPABASE_URL',   // ex: https://xxxxx.supabase.co
-  SUPABASE_ANON_KEY: 'YOUR_SUPABASE_ANON_KEY', // ex: eyJhbGciOiJIUzI1...
+  SUPABASE_URL:  'https://hawimjftwmrwljkjsnzu.supabase.co/rest/v1/',   // ex: 
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhd2ltamZ0d21yd2xqa2pzbnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjk4MTIsImV4cCI6MjEwMDgwNTgxMn0.Ej-PlxrKOd8cL9m3yQfIh3H9AvvDjY_d2xWGZskCz1s', // ex: eyJhbGciOiJIUzI1...
 };
 
 // ─────────────────────────────────────────────
