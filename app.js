@@ -27,12 +27,18 @@ const state = {
   filtered: [],
   editId: null,
 
+  currentView: 'map',
+
   map: null,
   markers: [],
   markersBounds: null,
   userLocationMarker: null,
   mapClickHandler: null,
   mapMode: 'pointer',
+
+  tileLayers: {},
+  activeTileLayer: null,
+  mapStyle: 'dark',
 
   authMode: 'login',
   initialized: false
@@ -69,6 +75,7 @@ async function startApp() {
   if (state.initialized) return;
 
   state.initialized = true;
+  restoreMapStyle();
   bindEvents();
 
   try {
@@ -172,9 +179,16 @@ function showScreen(name) {
   appScreen?.classList.toggle('hidden', name !== 'app');
 
   if (name === 'app') {
+    switchView('map');
+
     window.setTimeout(() => {
+      if (!state.map) {
+        initMap();
+      }
+
       state.map?.invalidateSize();
-    }, 100);
+      renderMarkers();
+    }, 150);
   }
 }
 
@@ -229,8 +243,19 @@ function bindEvents() {
     ?.addEventListener('input', debounce(applyFilters, 250));
 
   document
-    .getElementById('filter-view')
-    ?.addEventListener('change', switchView);
+  .getElementById('view-switcher')
+  ?.addEventListener('click', event => {
+    const button = event.target.closest('.view-btn');
+    if (!button) return;
+
+    switchView(button.dataset.view);
+  });
+
+document
+  .getElementById('map-style')
+  ?.addEventListener('change', event => {
+    changeMapStyle(event.target.value);
+  });
 
   document
     .getElementById('btn-fit-bounds')
@@ -402,10 +427,32 @@ async function handleAuthSubmit(event) {
 
       showToast('Connexion réussie.', 'success');
     }
-  } catch (error) {
-    console.error('Erreur authentification :', error);
-    showAuthError(translateAuthError(error.message));
+    } catch (error) {
+    console.error('Erreur savePlace complète :', {
+      code: error?.code,
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      payload
+    });
+
+    let message = error?.message || 'Erreur inconnue';
+
+    if (error?.code === 'PGRST204') {
+      message =
+        'Une colonne envoyée par l’application manque dans Supabase. ' +
+        message;
+    }
+
+    if (error?.code === '42501') {
+      message =
+        'Accès refusé par Supabase. Vérifie les politiques RLS.';
+    }
+
+    showToast(message, 'error');
+    setStatus('Erreur');
   } finally {
+     
     if (submitButton) {
       submitButton.disabled = false;
       submitButton.textContent =
@@ -575,28 +622,28 @@ async function handleFormSubmit(event) {
   }
 
   const payload = {
-    owner_id: userId,
-    name: data.name,
-    type: data.type || 'other',
-    description: data.description || null,
-    address: data.address || null,
-    city: data.city,
-    postal_code: data.postalCode || null,
-    country: data.country || 'France',
-    latitude,
-    longitude,
-    contact_email: data.contactEmail || null,
-    phone: data.phone || null,
-    website: data.website || null,
-    status: data.status || 'prospect',
-    priority: data.priority || 'low',
-    surface_m2: surface,
-    rent_monthly: rent,
-    favorite: data.favorite,
-    notes: data.notes || null,
-    tags: data.tags || null,
-    next_date: data.nextDate || null
-  };
+  owner_id: userId,
+  name: data.name,
+  type: data.type || 'other',
+  description: data.description || null,
+  address: data.address || null,
+  city: data.city,
+  postal_code: data.postalCode || null,
+  country: data.country || 'France',
+  latitude,
+  longitude,
+  contact_email: data.contactEmail || null,
+  phone: data.phone || null,
+  website: data.website || null,
+  status: data.status || 'prospect',
+  priority: data.priority || 'low',
+  surface_m2: surface,
+  rent_monthly: rent,
+  favorite: Boolean(data.favorite),
+  notes: data.notes || null,
+  tags: data.tags || null,
+  next_date: data.nextDate || null
+};
 
   const saveButton = document.getElementById('btn-save');
   const originalText = saveButton?.textContent;
@@ -941,31 +988,102 @@ function renderTable() {
 // 12. AFFICHAGE CARTE
 // ─────────────────────────────────────────────
 
-function switchView() {
-  const selectedView =
-    document.getElementById('filter-view')?.value || 'list';
+function switchView(view = 'map') {
+  if (view instanceof Event) {
+    view = view.target?.value || 'map';
+  }
 
+  view = view === 'list' ? 'list' : 'map';
+  state.currentView = view;
+
+  const showMap = view === 'map';
   const listView = document.getElementById('view-list');
   const mapView = document.getElementById('view-map');
 
-  const showMap = selectedView === 'map';
+  document.querySelectorAll('.view-btn').forEach(button => {
+    const isActive = button.dataset.view === view;
+
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-selected', String(isActive));
+  });
 
   listView?.classList.toggle('hidden', showMap);
-  mapView?.classList.toggle('hidden', !showMap);
-
   listView?.classList.toggle('active', !showMap);
+
+  mapView?.classList.toggle('hidden', !showMap);
   mapView?.classList.toggle('active', showMap);
 
-  if (showMap) {
-    if (!state.map) {
-      initMap();
-    }
+  // Compatibilité avec l’ancien select
+  const oldSelector = document.getElementById('filter-view');
+  if (oldSelector) oldSelector.value = view;
 
-    window.setTimeout(() => {
-      state.map?.invalidateSize();
-      renderMarkers();
-    }, 150);
+  if (!showMap) return;
+
+  if (!state.map) {
+    initMap();
   }
+
+  window.setTimeout(() => {
+    state.map?.invalidateSize({
+      animate: false,
+      pan: false
+    });
+
+    renderMarkers();
+  }, 150);
+}
+
+function createTileLayers() {
+  if (!window.L) return {};
+
+  return {
+    dark: window.L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      {
+        attribution:
+          '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }
+    ),
+
+    standard: window.L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      }
+    ),
+
+    light: window.L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      {
+        attribution:
+          '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }
+    ),
+
+    relief: window.L.tileLayer(
+      'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      {
+        attribution:
+          'Map data &copy; OpenStreetMap contributors, SRTM | Map style &copy; OpenTopoMap',
+        maxZoom: 17
+      }
+    ),
+
+    satellite: window.L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/' +
+      'World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        attribution:
+          'Tiles &copy; Esri — Sources: Esri, Maxar, Earthstar Geographics',
+        maxZoom: 19
+      }
+    )
+  };
 }
 
 function initMap() {
@@ -981,39 +1099,50 @@ function initMap() {
     return;
   }
 
-  state.map = window.L
-    .map('map', {
-      zoomControl: true
-    })
-    .setView([46.6034, 2.5], 6);
+  state.tileLayers = createTileLayers();
 
-  window.L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {
-      attribution: '© OpenStreetMap',
-      maxZoom: 19
-    }
-  ).addTo(state.map);
+  const requestedStyle =
+    document.getElementById('map-style')?.value ||
+    state.mapStyle ||
+    'dark';
+
+  state.mapStyle = state.tileLayers[requestedStyle]
+    ? requestedStyle
+    : 'dark';
+
+  state.activeTileLayer =
+    state.tileLayers[state.mapStyle] ||
+    state.tileLayers.standard;
+
+  state.map = window.L.map(mapElement, {
+    center: [46.6034, 2.5],
+    zoom: 6,
+    zoomControl: true,
+    layers: [state.activeTileLayer]
+  });
 
   state.mapClickHandler = event => {
     if (state.mapMode !== 'pointer') return;
 
-    const { lat, lng } = event.latlng;
+    const latitude = event.latlng.lat;
+    const longitude = event.latlng.lng;
 
-    setFieldValue('place-lat', lat.toFixed(6));
-    setFieldValue('place-lng', lng.toFixed(6));
+    const latitudeValue = latitude.toFixed(6);
+    const longitudeValue = longitude.toFixed(6);
 
-    showCoordTooltip(lat, lng);
+    const modal = document.getElementById('place-modal');
+    const modalIsClosed =
+      !modal || modal.classList.contains('hidden');
 
-    if (
-      document
-        .getElementById('place-modal')
-        ?.classList.contains('hidden')
-    ) {
+    if (modalIsClosed) {
       openModal(null);
-      setFieldValue('place-lat', lat.toFixed(6));
-      setFieldValue('place-lng', lng.toFixed(6));
     }
+
+    setFieldValue('place-lat', latitudeValue);
+    setFieldValue('place-lng', longitudeValue);
+
+    showCoordTooltip(latitude, longitude);
+    showToast('Coordonnées ajoutées au formulaire.', 'success');
   };
 
   state.map.on('click', state.mapClickHandler);
@@ -1024,11 +1153,70 @@ function initMap() {
   });
 }
 
+function changeMapStyle(style) {
+  if (!state.map) {
+    state.mapStyle = style;
+    initMap();
+    return;
+  }
+
+  const newLayer = state.tileLayers[style];
+
+  if (!newLayer) {
+    showToast('Ce fond de carte est indisponible.', 'error');
+    return;
+  }
+
+  if (
+    state.activeTileLayer &&
+    state.map.hasLayer(state.activeTileLayer)
+  ) {
+    state.map.removeLayer(state.activeTileLayer);
+  }
+
+  state.activeTileLayer = newLayer;
+  state.mapStyle = style;
+
+  newLayer.addTo(state.map);
+
+  try {
+    localStorage.setItem('cultural-map-style', style);
+  } catch {
+    // localStorage indisponible
+  }
+
+  window.setTimeout(() => {
+    state.map?.invalidateSize();
+  }, 50);
+}
+
+function restoreMapStyle() {
+  let savedStyle = 'dark';
+
+  try {
+    savedStyle =
+      localStorage.getItem('cultural-map-style') || 'dark';
+  } catch {
+    savedStyle = 'dark';
+  }
+
+  const selector = document.getElementById('map-style');
+
+  if (selector) {
+    const optionExists = Array.from(selector.options).some(
+      option => option.value === savedStyle
+    );
+
+    selector.value = optionExists ? savedStyle : 'dark';
+    state.mapStyle = selector.value;
+  }
+}
+
 function renderMarkers() {
   if (!state.map || !window.L) return;
 
   state.markers.forEach(marker => {
-    state.map.removeLayer(marker);
+    marker.remove();
   });
 
   state.markers = [];
@@ -1036,20 +1224,32 @@ function renderMarkers() {
   const bounds = window.L.latLngBounds([]);
 
   state.filtered.forEach(place => {
-    const latitude = Number(place.latitude);
-    const longitude = Number(place.longitude);
+    const latitude = parseOptionalNumber(place.latitude);
+    const longitude = parseOptionalNumber(place.longitude);
 
     if (
-      !Number.isFinite(latitude) ||
-      !Number.isFinite(longitude)
+      latitude === null ||
+      longitude === null ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
     ) {
       return;
     }
 
-    const marker = window.L
-      .marker([latitude, longitude])
-      .addTo(state.map)
-      .bindPopup(buildPopupHTML(place));
+    const marker = window.L.marker(
+      [latitude, longitude],
+      {
+        title: place.name || 'Lieu'
+      }
+    );
+
+    marker
+      .bindPopup(buildPopupHTML(place), {
+        maxWidth: 280
+      })
+      .addTo(state.map);
 
     state.markers.push(marker);
     bounds.extend([latitude, longitude]);
@@ -1060,40 +1260,46 @@ function renderMarkers() {
 
 function buildPopupHTML(place) {
   const id = escAttribute(place.id);
+  const type =
+    TYPE_LABELS[place.type] ||
+    place.type ||
+    'Autre';
+
+  const status =
+    STATUS_LABELS[place.status] ||
+    place.status ||
+    'Prospect';
 
   return `
-    <div>
-      <strong>${escHtml(place.name || 'Lieu')}</strong><br>
+    <article class="map-popup">
+      <strong>${place.favorite ? '⭐ ' : ''}${escHtml(
+        place.name || 'Lieu'
+      )}</strong>
 
-      <span style="font-size:12px">
+      <p>
+        ${escHtml(type)}<br>
         ${escHtml(place.city || '')}
-      </span><br>
+      </p>
 
-      <span style="font-size:11px">
-        ${escHtml(TYPE_LABELS[place.type] || place.type || 'Autre')}
-      </span>
+      <small>${escHtml(status)}</small>
 
-      <div style="margin-top:8px">
+      <div style="margin-top:10px">
         <button
           type="button"
+          class="btn-primary"
           onclick="openModal('${id}')"
-          style="
-            background:#2563eb;
-            color:#fff;
-            border:none;
-            border-radius:4px;
-            padding:5px 10px;
-            cursor:pointer;
-          "
+          style="padding:6px 10px;font-size:12px"
         >
-          Modifier
+          ✏️ Modifier
         </button>
       </div>
-    </div>
+    </article>
   `;
 }
 
 function centerOnFrance() {
+  switchView('map');
+
   if (!state.map) {
     initMap();
   }
@@ -1102,13 +1308,15 @@ function centerOnFrance() {
 }
 
 function fitMarkers() {
+  switchView('map');
+
   if (!state.map) {
     initMap();
   }
 
   if (!state.map || !state.markersBounds) {
     showToast(
-      'Aucun lieu avec des coordonnées.',
+      'Aucun lieu ne possède de coordonnées.',
       'error'
     );
     return;
@@ -1116,11 +1324,13 @@ function fitMarkers() {
 
   state.map.fitBounds(state.markersBounds, {
     padding: [40, 40],
-    maxZoom: 13
+    maxZoom: 14
   });
 }
 
 function goToMyLocation() {
+  switchView('map');
+
   if (!state.map) {
     initMap();
   }
@@ -1135,72 +1345,98 @@ function goToMyLocation() {
     return;
   }
 
+  setStatus('Recherche de la position…');
   showToast('Recherche de ta position…');
 
   navigator.geolocation.getCurrentPosition(
     position => {
       const latitude = position.coords.latitude;
       const longitude = position.coords.longitude;
+      const accuracy = position.coords.accuracy;
 
-      state.map.setView([latitude, longitude], 14);
+      state.map.setView([latitude, longitude], 15);
 
-      if (state.userLocationMarker) {
-        state.map.removeLayer(state.userLocationMarker);
-      }
+      state.userLocationMarker?.remove();
 
       state.userLocationMarker = window.L
-        .marker([latitude, longitude])
+        .circleMarker([latitude, longitude], {
+          radius: 9,
+          color: '#ffffff',
+          weight: 3,
+          fillColor: '#2563eb',
+          fillOpacity: 1
+        })
         .addTo(state.map)
-        .bindPopup('📍 Ta position')
+        .bindPopup(
+          `📍 Ta position<br><small>Précision : environ ${Math.round(
+            accuracy
+          )} m</small>`
+        )
         .openPopup();
 
+      setStatus('Prêt');
       showToast('Position trouvée.', 'success');
     },
     error => {
       console.error('Erreur géolocalisation :', error);
-      showToast(
-        'Position inaccessible. Vérifie les autorisations.',
-        'error'
-      );
+
+      let message = 'Position inaccessible.';
+
+      if (error.code === 1) {
+        message =
+          'Autorisation de géolocalisation refusée.';
+      } else if (error.code === 2) {
+        message =
+          'Ta position n’a pas pu être déterminée.';
+      } else if (error.code === 3) {
+        message =
+          'La recherche de position a expiré.';
+      }
+
+      setStatus('Prêt');
+      showToast(message, 'error');
     },
     {
       enableHighAccuracy: true,
-      timeout: 10000,
+      timeout: 12000,
       maximumAge: 60000
     }
   );
 }
 
 function togglePointerMode() {
+  state.mapMode =
+    state.mapMode === 'pointer'
+      ? 'browse'
+      : 'pointer';
+
+  const isPointer = state.mapMode === 'pointer';
   const button = document.getElementById('btn-pointer');
   const label = document.getElementById('map-mode-label');
 
-  if (state.mapMode === 'pointer') {
-    state.mapMode = 'browse';
+  button?.classList.toggle('active', isPointer);
+  button?.setAttribute('aria-pressed', String(isPointer));
 
-    button?.classList.remove('active');
-
-    if (label) {
-      label.textContent = 'Mode pointer : inactif';
-    }
-
-    if (state.map && state.mapClickHandler) {
-      state.map.off('click', state.mapClickHandler);
-    }
-  } else {
-    state.mapMode = 'pointer';
-
-    button?.classList.add('active');
-
-    if (label) {
-      label.textContent = 'Mode pointer : actif';
-    }
-
-    if (state.map && state.mapClickHandler) {
-      state.map.off('click', state.mapClickHandler);
-      state.map.on('click', state.mapClickHandler);
-    }
+  if (label) {
+    label.textContent = isPointer
+      ? 'Mode pointer : actif'
+      : 'Mode navigation : actif';
   }
+
+  const mapContainer = state.map?.getContainer();
+
+  if (mapContainer) {
+    mapContainer.style.cursor = isPointer
+      ? 'crosshair'
+      : '';
+  }
+
+  showToast(
+    isPointer
+      ? 'Mode pointer activé.'
+      : 'Mode navigation activé.',
+    'success'
+  );
 }
 
 function showCoordTooltip(latitude, longitude) {
@@ -1212,7 +1448,7 @@ function showCoordTooltip(latitude, longitude) {
 
   tooltip.classList.remove('hidden');
 
-  clearTimeout(tooltip.hideTimer);
+  window.clearTimeout(tooltip.hideTimer);
 
   tooltip.hideTimer = window.setTimeout(() => {
     tooltip.classList.add('hidden');
@@ -1355,3 +1591,5 @@ function showToast(message, type = '') {
 // Fonctions accessibles depuis les boutons HTML générés
 window.openModal = openModal;
 window.quickToggleFav = quickToggleFav;
+window.switchView = switchView;
+window.changeMapStyle = changeMapStyle;
