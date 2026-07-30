@@ -1,572 +1,874 @@
 /* ============================================
    Cultural Places Scout — app.js
-   Vanilla JS + Supabase + Leaflet
+   Vanilla JS + Supabase v2 + Leaflet
    ============================================ */
 
-// ── 1. CONFIGURATION (à remplir) ────────────────────────────────────────────
+'use strict';
+
+// ─────────────────────────────────────────────
+// 1. CONFIGURATION SUPABASE
+// ─────────────────────────────────────────────
+
 const CONFIG = {
-  SUPABASE_URL:   'https://hawimjftwmrwljkjsnzu.supabase.co',   // ex: 'https://xxxxx.supabase.co'
-  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhd2ltamZ0d21yd2xqa2pzbnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjk4MTIsImV4cCI6MjEwMDgwNTgxMn0.Ej-PlxrKOd8cL9m3yQfIh3H9AvvDjY_d2xWGZskCz1s' // ex: 'eyJhbGci...'
+  SUPABASE_URL: 'https://hawimjftwmrwljkjsnzu.supabase.co',
+
+  SUPABASE_ANON_KEY:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhd2ltamZ0d21yd2xqa2pzbnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjk4MTIsImV4cCI6MjEwMDgwNTgxMn0.Ej-PlxrKOd8cL9m3yQfIh3H9AvvDjY_d2xWGZskCz1s'
 };
 
-// ── 2. ÉTAT GLOBAL ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// 2. ÉTAT GLOBAL
+// ─────────────────────────────────────────────
+
 const state = {
-  supabase:     null,
-  session:      null,
-  places:      [],          // tous les lieux chargés
-  filtered:    [],          // lieux après filtrage
-  editId:      null,        // id du lieu en cours d'édition (null = ajout)
-  mapMode:     'pointer',   // 'pointer' | 'browse'
-  map:         null,
-  markers:     [],
-  userLocation: null,
+  supabase: null,
+  session: null,
+  places: [],
+  filtered: [],
+  editId: null,
+
+  map: null,
+  markers: [],
+  markersBounds: null,
+  userLocationMarker: null,
   mapClickHandler: null,
+  mapMode: 'pointer',
+
+  authMode: 'login',
+  initialized: false
 };
 
-// ── 3. RÉFÉRENCES DOM ───────────────────────────────────────────────────────
-const DOM = {
-  // Screens
-  setupBanner:    null,
-  authScreen:     null,
-  appScreen:      null,
+// ─────────────────────────────────────────────
+// 3. LIBELLÉS
+// ─────────────────────────────────────────────
 
-  // Auth
-  authTabs:       null,
-  authForm:       null,
-  authEmail:      null,
-  authPassword:   null,
-  authName:       null,
-  authSubmit:     null,
-  authError:      null,
-  labelName:      null,
-
-  // App header
-  btnAdd:         null,
-  btnLogout:      null,
-  placesCount:    null,
-  userEmail:      null,
-
-  // Filters
-  filterType:     null,
-  filterStatus:   null,
-  filterView:     null,
-  searchInput:    null,
-
-  // Views
-  viewList:       null,
-  viewMap:        null,
-  placesTbody:    null,
-
-  // Map
-  map:            null,
-  mapToolbar:     null,
-  btnFitBounds:   null,
-  btnFrance:      null,
-  btnGeoloc:      null,
-  btnPointer:     null,
-  mapModeLabel:   null,
-  coordTooltip:   null,
-
-  // Modal
-  placeModal:     null,
-  modalTitle:     null,
-  modalClose:     null,
-  placeForm:      null,
-  btnDelete:      null,
-  btnCancel:      null,
-  btnSave:        null,
-  btnClearGeo:    null,
-
-  // Status
-  statusMsg:      null,
-  toastContainer: null,
+const TYPE_LABELS = {
+  gallery: 'Galerie d\'art',
+  museum: 'Musée',
+  theater: 'Théâtre',
+  concert: 'Salle de concert',
+  library: 'Bibliothèque',
+  cinema: 'Cinéma',
+  other: 'Autre'
 };
 
-// ── 4. INIT ─────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  // population refs
-  Object.keys(DOM).forEach(key => {
-    DOM[key] = document.getElementById(key) || document.querySelector('.' + key);
-  });
+const STATUS_LABELS = {
+  prospect: 'Prospect',
+  contacted: 'Contacté',
+  contracted: 'Sous contrat',
+  archived: 'Archivé'
+};
 
-  // resolve alias simples
-  DOM.placesTbody  = document.getElementById('places-tbody');
-  DOM.toastContainer = document.getElementById('toast-container');
-  DOM.coordTooltip = document.getElementById('coord-tooltip');
-  DOM.map = document.getElementById('map');
+// ─────────────────────────────────────────────
+// 4. DÉMARRAGE
+// ─────────────────────────────────────────────
 
-  if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY) {
-    showScreen('setup');
-    return;
-  }
+document.addEventListener('DOMContentLoaded', startApp);
 
-  initSupabase();
+async function startApp() {
+  if (state.initialized) return;
+
+  state.initialized = true;
   bindEvents();
-  showScreen('auth');
-});
 
-// ── 5. SUPABASE INIT ─────────────────────────────────────────────────────────
-function initSupabase() {
-  const { createClient } = window.supabase || {};
-  if (!createClient) {
-    // charger le SDK si absent (fallback)
-    state.supabase = null;
-    return;
-  }
-  state.supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
-  state.supabase.auth.getSession().then(({ data }) => {
-    state.session = data.session;
-    if (state.session) {
-      showScreen('app');
-      loadPlaces();
-    } else {
-      showScreen('auth');
-    }
-  });
-  state.supabase.auth.onAuthStateChange((_e, session) => {
+  try {
+    initializeSupabase();
+
+    const {
+      data: { session },
+      error
+    } = await state.supabase.auth.getSession();
+
+    if (error) throw error;
+
     state.session = session;
+
+    state.supabase.auth.onAuthStateChange((event, newSession) => {
+      state.session = newSession;
+
+      window.setTimeout(async () => {
+        if (newSession) {
+          showScreen('app');
+          updateUserDisplay();
+
+          if (
+            event === 'SIGNED_IN' ||
+            event === 'INITIAL_SESSION' ||
+            event === 'TOKEN_REFRESHED'
+          ) {
+            await loadPlaces();
+          }
+        } else {
+          clearLocalData();
+          showScreen('auth');
+        }
+      }, 0);
+    });
+
     if (session) {
       showScreen('app');
-      loadPlaces();
+      updateUserDisplay();
+      await loadPlaces();
     } else {
       showScreen('auth');
     }
-  });
+  } catch (error) {
+    console.error('Erreur initialisation :', error);
+    showScreen('setup');
+
+    const banner = document.getElementById('setup-banner');
+
+    if (banner) {
+      banner.classList.remove('hidden');
+      banner.innerHTML = `
+        <div class="banner-content">
+          <strong>⚠️ Erreur d'initialisation</strong><br>
+          ${escHtml(error.message)}
+        </div>
+      `;
+    }
+  }
 }
 
-// ── 6. SCREEN MANAGEMENT ────────────────────────────────────────────────────
-function showScreen(name) {
-  document.getElementById('setup-banner')?.classList.toggle('hidden', name !== 'setup');
-  document.getElementById('auth-screen')?.classList.toggle('hidden', name !== 'auth');
-  document.getElementById('app-screen')?.classList.toggle('hidden', name !== 'app');
-}
+function initializeSupabase() {
+  if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY) {
+    throw new Error('URL ou clé Supabase manquante dans app.js.');
+  }
 
-// ── 7. AUTH ──────────────────────────────────────────────────────────────────
-function bindEvents() {
-  // ── Auth tabs
-  document.getElementById('auth-tabs')?.addEventListener('click', e => {
-    if (!e.target.matches('.tab-btn')) return;
-    const tab = e.target.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    document.getElementById('auth-submit').textContent = tab === 'register' ? 'Inscription' : 'Connexion';
-    document.getElementById('label-name')?.classList.toggle('hidden', tab === 'login');
-    document.getElementById('auth-name')?.classList.toggle('hidden', tab === 'login');
-  });
+  if (!window.supabase?.createClient) {
+    throw new Error(
+      'Le SDK Supabase ne s’est pas chargé. Vérifie le script Supabase dans index.html.'
+    );
+  }
 
-  // ── Auth form
-  document.getElementById('auth-form')?.addEventListener('submit', async e => {
-    e.preventDefault();
-    const email    = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-password').value;
-    const name     = document.getElementById('auth-name')?.value.trim();
-    const isRegister = document.querySelector('.tab-btn.active')?.dataset.tab === 'register';
-    const errorEl  = document.getElementById('auth-error');
-    errorEl.classList.add('hidden');
-    try {
-      if (isRegister) {
-        const { error } = await state.supabase.auth.signUp({ email, password, options: { data: { full_name: name || '' } } });
-        if (error) throw error;
-        showToast('Compte créé — vérifiez votre email', 'success');
-      } else {
-        const { data, error } = await state.supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        state.session = data.session;
-        showScreen('app');
-        loadPlaces();
+  state.supabase = window.supabase.createClient(
+    CONFIG.SUPABASE_URL,
+    CONFIG.SUPABASE_ANON_KEY,
+    {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
       }
-    } catch (err) {
-      errorEl.textContent = err.message;
-      errorEl.classList.remove('hidden');
     }
-  });
-
-  // ── Logout
-  document.getElementById('btn-logout')?.addEventListener('click', async () => {
-    await state.supabase?.auth.signOut();
-    state.session = null;
-    showScreen('auth');
-    document.getElementById('auth-form').reset();
-  });
-
-  // ── Filters
-  document.getElementById('filter-type')?.addEventListener('change', applyFilters);
-  document.getElementById('filter-status')?.addEventListener('change', applyFilters);
-  document.getElementById('search-input')?.addEventListener('input', debounce(applyFilters, 250));
-  document.getElementById('filter-view')?.addEventListener('change', switchView);
-
-  // ── Header buttons
-  document.getElementById('btn-add')?.addEventListener('click', () => openModal(null));
-
-  // ── Map toolbar
-  document.getElementById('btn-fit-bounds')?.addEventListener('click', fitMarkers);
-  document.getElementById('btn-france')?.addEventListener('click', () => {
-    if (state.map) {
-      state.map.setView([46.6034, 2.5], 6);
-      if (state.mapMode === 'browse') state.map.scrollWheelZoom.enable();
-    }
-  });
-  document.getElementById('btn-geoloc')?.addEventListener('click', goToMyLocation);
-  document.getElementById('btn-pointer')?.addEventListener('click', togglePointerMode);
-
-  // ── Modal
-  document.getElementById('modal-close')?.addEventListener('click', closeModal);
-  document.getElementById('btn-cancel')?.addEventListener('click', closeModal);
-  document.getElementById('btn-delete')?.addEventListener('click', deleteCurrentPlace);
-  document.getElementById('btn-clear-geo')?.addEventListener('click', clearGeoFields);
-  document.getElementById('place-form')?.addEventListener('submit', handleFormSubmit);
-
-  // ── Modal backdrop click closes it
-  document.getElementById('place-modal')?.addEventListener('click', e => {
-    if (e.target.id === 'place-modal') closeModal();
-  });
-
-  // ── ESC closes modal
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeModal();
-  });
-}
-
-// ── 8. VIEW SWITCHING ────────────────────────────────────────────────────────
-function switchView() {
-  const view = document.getElementById('filter-view')?.value || 'list';
-  document.getElementById('view-list')?.classList.toggle('active', view === 'list');
-  document.getElementById('view-map')?.classList.toggle('active', view === 'map');
-
-  if (view === 'map') {
-    if (!state.map) initMap();
-    else setTimeout(() => state.map.invalidateSize(), 50);
-  }
-}
-
-// ── 9. MAP ────────────────────────────────────────────────────────────────────
-function initMap() {
-  if (!document.getElementById('map') || state.map) return;
-
-  state.map = L.map('map', { zoomControl: true }).setView([46.6034, 2.5], 6);
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
-    maxZoom: 18,
-  }).addTo(state.map);
-
-  // ── Map click: only capture coords in pointer mode ──
-  state.mapClickHandler = e => {
-    if (state.mapMode !== 'pointer') return;
-    const { lat, lng } = e.latlng;
-    document.getElementById('place-lat').value = lat.toFixed(6);
-    document.getElementById('place-lng').value = lng.toFixed(6);
-    showCoordTooltip(lat, lng);
-  };
-  state.map.on('click', state.mapClickHandler);
-
-  // render markers once map ready
-  state.map.whenReady(() => renderMarkers());
-  state.map.on('moveend', renderMarkers);
-  state.map.on('zoomend', renderMarkers);
-}
-
-function renderMarkers() {
-  if (!state.map) return;
-
-  // clear existing markers
-  state.markers.forEach(m => m.remove());
-  state.markers = [];
-
-  const places = state.filtered;
-  const bounds = L.latLngBounds();
-
-  places.forEach(place => {
-    if (!place.latitude || !place.longitude) return;
-    const marker = L.marker([place.latitude, place.longitude])
-      .addTo(state.map)
-      .bindPopup(buildPopupHTML(place));
-    state.markers.push(marker);
-    bounds.extend([place.latitude, place.longitude]);
-  });
-
-  // store bounds for fit-bounds button
-  state.markersBounds = bounds.isValid() ? bounds : null;
-}
-
-function buildPopupHTML(place) {
-  const typeLabel = TYPE_LABELS[place.type] || place.type;
-  return `<div>
-    <strong>${escHtml(place.name)}</strong><br>
-    <span style="font-size:12px;color:var(--text-muted)">${escHtml(place.city)}</span><br>
-    <span style="font-size:11px">${typeLabel}</span>
-    <div style="margin-top:6px;display:flex;gap:4px">
-      <button onclick="openModal('${place.id}')" style="background:var(--primary);color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:12px">Éditer</button>
-    </div>
-  </div>`;
-}
-
-// ── Map Toolbar Buttons ──
-function fitMarkers() {
-  if (!state.map || !state.markersBounds) {
-    showToast('Aucun lieu avec coordonnées', 'error');
-    return;
-  }
-  state.map.fitBounds(state.markersBounds, { padding: [40, 40], maxZoom: 12 });
-}
-
-async function goToMyLocation() {
-  if (!state.map) return;
-  if (!navigator.geolocation) {
-    showToast('Géolocalisation non disponible', 'error');
-    return;
-  }
-  showToast('Recherche de position…');
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      const { latitude: lat, longitude: lng } = pos.coords;
-      state.userLocation = [lat, lng];
-      state.map.setView([lat, lng], 14);
-      showToast(`Position: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
-    },
-    err => showToast('Position non accessible — vérifiez les permissions', 'error')
   );
-}
 
-function togglePointerMode() {
-  const btn = document.getElementById('btn-pointer');
-  const label = document.getElementById('map-mode-label');
-
-  if (state.mapMode === 'pointer') {
-    state.mapMode = 'browse';
-    btn?.classList.remove('active');
-    btn?.setAttribute('title', 'Désactivé');
-    if (label) label.textContent = 'Mode pointer: inactif';
-    // disable map click capture
-    if (state.map && state.mapClickHandler) {
-      state.map.off('click', state.mapClickHandler);
-    }
-  } else {
-    state.mapMode = 'pointer';
-    btn?.classList.add('active');
-    btn?.setAttribute('title', 'Cliquer pour capturer les coordonnées');
-    if (label) label.textContent = 'Mode pointer: actif';
-    // re-enable map click capture
-    if (state.map) {
-      state.map.on('click', state.mapClickHandler);
-    }
+  if (!state.supabase?.auth) {
+    throw new Error('Impossible de créer le client Supabase.');
   }
 }
 
-function showCoordTooltip(lat, lng) {
-  const tip = document.getElementById('coord-tooltip');
-  if (!tip) return;
-  tip.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-  tip.classList.remove('hidden');
-  clearTimeout(tip._timer);
-  tip._timer = setTimeout(() => tip.classList.add('hidden'), 3000);
+// ─────────────────────────────────────────────
+// 5. GESTION DES ÉCRANS
+// ─────────────────────────────────────────────
+
+function showScreen(name) {
+  const setupBanner = document.getElementById('setup-banner');
+  const authScreen = document.getElementById('auth-screen');
+  const appScreen = document.getElementById('app-screen');
+
+  setupBanner?.classList.toggle('hidden', name !== 'setup');
+  authScreen?.classList.toggle('hidden', name !== 'auth');
+  appScreen?.classList.toggle('hidden', name !== 'app');
+
+  if (name === 'app') {
+    window.setTimeout(() => {
+      state.map?.invalidateSize();
+    }, 100);
+  }
 }
 
-// ── 10. CRUD PLACES ──────────────────────────────────────────────────────────
-async function loadPlaces() {
-  if (!state.supabase) return;
-  setStatus('Chargement…');
-  const { data, error } = await state.supabase
-    .from('places')
-    .select('*')
-    .order('created_at', { ascending: false });
+function clearLocalData() {
+  state.session = null;
+  state.places = [];
+  state.filtered = [];
+  state.editId = null;
 
-  if (error) {
-    showToast('Erreur chargement: ' + error.message, 'error');
-    setStatus('Erreur chargement');
+  renderTable();
+  renderMarkers();
+  updateCount();
+
+  const userEmail = document.getElementById('user-email');
+  if (userEmail) userEmail.textContent = '';
+}
+
+// ─────────────────────────────────────────────
+// 6. ÉVÉNEMENTS
+// ─────────────────────────────────────────────
+
+function bindEvents() {
+  document.getElementById('auth-tabs')?.addEventListener('click', event => {
+    const button = event.target.closest('.tab-btn');
+    if (!button) return;
+
+    setAuthMode(button.dataset.tab);
+  });
+
+  document
+    .getElementById('auth-form')
+    ?.addEventListener('submit', handleAuthSubmit);
+
+  document
+    .getElementById('btn-logout')
+    ?.addEventListener('click', handleLogout);
+
+  document
+    .getElementById('btn-add')
+    ?.addEventListener('click', () => openModal(null));
+
+  document
+    .getElementById('filter-type')
+    ?.addEventListener('change', applyFilters);
+
+  document
+    .getElementById('filter-status')
+    ?.addEventListener('change', applyFilters);
+
+  document
+    .getElementById('search-input')
+    ?.addEventListener('input', debounce(applyFilters, 250));
+
+  document
+    .getElementById('filter-view')
+    ?.addEventListener('change', switchView);
+
+  document
+    .getElementById('btn-fit-bounds')
+    ?.addEventListener('click', fitMarkers);
+
+  document
+    .getElementById('btn-france')
+    ?.addEventListener('click', centerOnFrance);
+
+  document
+    .getElementById('btn-geoloc')
+    ?.addEventListener('click', goToMyLocation);
+
+  document
+    .getElementById('btn-pointer')
+    ?.addEventListener('click', togglePointerMode);
+
+  document
+    .getElementById('modal-close')
+    ?.addEventListener('click', closeModal);
+
+  document
+    .getElementById('btn-cancel')
+    ?.addEventListener('click', closeModal);
+
+  document
+    .getElementById('btn-delete')
+    ?.addEventListener('click', deleteCurrentPlace);
+
+  document
+    .getElementById('btn-clear-geo')
+    ?.addEventListener('click', clearGeoFields);
+
+  document
+    .getElementById('place-form')
+    ?.addEventListener('submit', handleFormSubmit);
+
+  document.getElementById('place-modal')?.addEventListener('click', event => {
+    if (event.target.id === 'place-modal') {
+      closeModal();
+    }
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closeModal();
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// 7. AUTHENTIFICATION
+// ─────────────────────────────────────────────
+
+function setAuthMode(mode) {
+  state.authMode = mode === 'register' ? 'register' : 'login';
+
+  document.querySelectorAll('.tab-btn').forEach(button => {
+    button.classList.toggle(
+      'active',
+      button.dataset.tab === state.authMode
+    );
+  });
+
+  const isRegister = state.authMode === 'register';
+  const submitButton = document.getElementById('auth-submit');
+  const nameInput = document.getElementById('auth-name');
+  const nameLabel = document.getElementById('label-name');
+
+  if (submitButton) {
+    submitButton.textContent = isRegister
+      ? 'Inscription'
+      : 'Connexion';
+  }
+
+  nameInput?.classList.toggle('hidden', !isRegister);
+  nameLabel?.classList.toggle('hidden', !isRegister);
+
+  hideAuthError();
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+
+  if (!state.supabase?.auth) {
+    showAuthError(
+      'Supabase n’est pas initialisé. Vérifie les scripts dans index.html.'
+    );
     return;
   }
 
-  state.places = data || [];
-  state.filtered = [...state.places];
-  updateCount();
-  applyFilters();
-  renderMarkers();
-  setStatus('Prêt');
+  const email = document
+    .getElementById('auth-email')
+    ?.value.trim();
+
+  const password =
+    document.getElementById('auth-password')?.value || '';
+
+  const fullName = document
+    .getElementById('auth-name')
+    ?.value.trim();
+
+  if (!email || !password) {
+    showAuthError('L’email et le mot de passe sont obligatoires.');
+    return;
+  }
+
+  if (password.length < 6) {
+    showAuthError(
+      'Le mot de passe doit contenir au moins 6 caractères.'
+    );
+    return;
+  }
+
+  const submitButton = document.getElementById('auth-submit');
+  const originalText = submitButton?.textContent;
+
+  hideAuthError();
+
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = 'Patientez…';
+  }
+
+  try {
+    if (state.authMode === 'register') {
+      const { data, error } = await state.supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName || ''
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.session) {
+        state.session = data.session;
+        showToast('Compte créé et connecté.', 'success');
+        showScreen('app');
+        await loadPlaces();
+      } else {
+        showToast(
+          'Compte créé. Vérifie ton email pour confirmer ton inscription.',
+          'success'
+        );
+
+        setAuthMode('login');
+      }
+    } else {
+      const { data, error } =
+        await state.supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+      if (error) throw error;
+
+      if (!data.session) {
+        throw new Error('Aucune session reçue après la connexion.');
+      }
+
+      state.session = data.session;
+      showScreen('app');
+      updateUserDisplay();
+      await loadPlaces();
+
+      showToast('Connexion réussie.', 'success');
+    }
+  } catch (error) {
+    console.error('Erreur authentification :', error);
+    showAuthError(translateAuthError(error.message));
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent =
+        state.authMode === 'register'
+          ? 'Inscription'
+          : 'Connexion';
+    }
+
+    if (originalText && !submitButton?.textContent) {
+      submitButton.textContent = originalText;
+    }
+  }
 }
 
-async function handleFormSubmit(e) {
-  e.preventDefault();
-  const form = e.target;
+async function handleLogout() {
+  if (!state.supabase?.auth) return;
+
+  try {
+    const { error } = await state.supabase.auth.signOut();
+    if (error) throw error;
+
+    clearLocalData();
+    showScreen('auth');
+
+    document.getElementById('auth-form')?.reset();
+    setAuthMode('login');
+
+    showToast('Déconnexion réussie.', 'success');
+  } catch (error) {
+    console.error('Erreur déconnexion :', error);
+    showToast('Erreur : ' + error.message, 'error');
+  }
+}
+
+function showAuthError(message) {
+  const element = document.getElementById('auth-error');
+  if (!element) return;
+
+  element.textContent = message;
+  element.classList.remove('hidden');
+}
+
+function hideAuthError() {
+  const element = document.getElementById('auth-error');
+  if (!element) return;
+
+  element.textContent = '';
+  element.classList.add('hidden');
+}
+
+function translateAuthError(message = '') {
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes('invalid login credentials')) {
+    return 'Email ou mot de passe incorrect.';
+  }
+
+  if (lowerMessage.includes('email not confirmed')) {
+    return 'Tu dois confirmer ton adresse email avant de te connecter.';
+  }
+
+  if (lowerMessage.includes('user already registered')) {
+    return 'Un compte existe déjà avec cette adresse email.';
+  }
+
+  if (lowerMessage.includes('password should be')) {
+    return 'Le mot de passe est trop court.';
+  }
+
+  if (lowerMessage.includes('rate limit')) {
+    return 'Trop de tentatives. Attends quelques minutes.';
+  }
+
+  return message || 'Une erreur inconnue est survenue.';
+}
+
+// ─────────────────────────────────────────────
+// 8. CHARGEMENT DES LIEUX
+// ─────────────────────────────────────────────
+
+async function loadPlaces() {
+  const userId = getCurrentUserId();
+
+  if (!state.supabase || !userId) {
+    state.places = [];
+    state.filtered = [];
+    renderTable();
+    updateCount();
+    return;
+  }
+
+  setStatus('Chargement…');
+
+  try {
+    const { data, error } = await state.supabase
+      .from('places')
+      .select('*')
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    state.places = data || [];
+    applyFilters();
+    updateCount();
+    updateUserDisplay();
+    setStatus('Prêt');
+  } catch (error) {
+    console.error('Erreur loadPlaces :', error);
+    showToast(
+      'Erreur de chargement : ' + error.message,
+      'error'
+    );
+    setStatus('Erreur de chargement');
+  }
+}
+
+// ─────────────────────────────────────────────
+// 9. AJOUT ET MODIFICATION
+// ─────────────────────────────────────────────
+
+async function handleFormSubmit(event) {
+  event.preventDefault();
+
+  const userId = getCurrentUserId();
+
+  if (!state.supabase || !userId) {
+    showToast(
+      'Ta session a expiré. Reconnecte-toi.',
+      'error'
+    );
+    showScreen('auth');
+    return;
+  }
+
   const data = getFormData();
 
-  // validation minimale
-  if (!data.name?.trim()) { showToast('Le nom est requis', 'error'); return; }
-  if (!data.city?.trim()) { showToast('La ville est requise', 'error'); return; }
-
-  const payload = {
-    name:          data.name.trim(),
-    type:          data.type || 'other',
-    description:   data.description || null,
-    address:       data.address || null,
-    city:          data.city.trim(),
-    postal_code:   data.postal || null,
-    country:       data.country || null,
-    latitude:      parseFloat(data.lat) || null,
-    longitude:     parseFloat(data.lng) || null,
-    contact_email: data.email || null,
-    phone:         data.phone || null,
-    website:       data.website || null,
-    status:        data.status || 'prospect',
-    priority:      data.priority || 'low',
-    surface_m2:    parseFloat(data.surface) || null,
-    rent_monthly:  parseFloat(data.rent) || null,
-    favorite:      !!data.favorite,
-    notes:         data.notes || null,
-    tags:          data.tags || null,
-    next_date:     data.next_date || null,
-  };
-
-  setStatus('Enregistrement…');
-  let result;
-  if (state.editId) {
-    result = await state.supabase.from('places').update(payload).eq('id', state.editId);
-  } else {
-    result = await state.supabase.from('places').insert(payload);
-  }
-
-  const { error } = result;
-  if (error) {
-    showToast('Erreur: ' + error.message, 'error');
-    setStatus('Erreur');
+  if (!data.name) {
+    showToast('Le nom est obligatoire.', 'error');
     return;
   }
 
-  showToast(state.editId ? 'Lieu mis à jour' : 'Lieu ajouté', 'success');
-  closeModal();
-  await loadPlaces();
+  if (!data.city) {
+    showToast('La ville est obligatoire.', 'error');
+    return;
+  }
+
+  const latitude = parseOptionalNumber(data.latitude);
+  const longitude = parseOptionalNumber(data.longitude);
+  const surface = parseOptionalNumber(data.surface);
+  const rent = parseOptionalNumber(data.rent);
+
+  if (latitude !== null && (latitude < -90 || latitude > 90)) {
+    showToast('La latitude doit être comprise entre -90 et 90.', 'error');
+    return;
+  }
+
+  if (
+    longitude !== null &&
+    (longitude < -180 || longitude > 180)
+  ) {
+    showToast(
+      'La longitude doit être comprise entre -180 et 180.',
+      'error'
+    );
+    return;
+  }
+
+  const payload = {
+    owner_id: userId,
+    name: data.name,
+    type: data.type || 'other',
+    description: data.description || null,
+    address: data.address || null,
+    city: data.city,
+    postal_code: data.postalCode || null,
+    country: data.country || 'France',
+    latitude,
+    longitude,
+    contact_email: data.contactEmail || null,
+    phone: data.phone || null,
+    website: data.website || null,
+    status: data.status || 'prospect',
+    priority: data.priority || 'low',
+    surface_m2: surface,
+    rent_monthly: rent,
+    favorite: data.favorite,
+    notes: data.notes || null,
+    tags: data.tags || null,
+    next_date: data.nextDate || null
+  };
+
+  const saveButton = document.getElementById('btn-save');
+  const originalText = saveButton?.textContent;
+
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.textContent = 'Enregistrement…';
+  }
+
+  setStatus('Enregistrement…');
+
+  try {
+    let query;
+
+    if (state.editId) {
+      query = state.supabase
+        .from('places')
+        .update(payload)
+        .eq('id', state.editId)
+        .eq('owner_id', userId);
+    } else {
+      query = state.supabase
+        .from('places')
+        .insert(payload);
+    }
+
+    const { error } = await query;
+
+    if (error) throw error;
+
+    showToast(
+      state.editId
+        ? 'Lieu mis à jour.'
+        : 'Lieu ajouté.',
+      'success'
+    );
+
+    closeModal();
+    await loadPlaces();
+  } catch (error) {
+    console.error('Erreur savePlace :', error);
+    showToast('Erreur : ' + error.message, 'error');
+    setStatus('Erreur');
+  } finally {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.textContent = originalText || 'Enregistrer';
+    }
+  }
 }
 
 async function deleteCurrentPlace() {
-  if (!state.editId) return;
-  if (!confirm('Supprimer ce lieu ?')) return;
+  const userId = getCurrentUserId();
+
+  if (!state.editId || !userId || !state.supabase) return;
+
+  const confirmed = window.confirm(
+    'Veux-tu vraiment supprimer ce lieu ?'
+  );
+
+  if (!confirmed) return;
+
   setStatus('Suppression…');
-  const { error } = await state.supabase.from('places').delete().eq('id', state.editId);
-  if (error) {
-    showToast('Erreur: ' + error.message, 'error');
+
+  try {
+    const { error } = await state.supabase
+      .from('places')
+      .delete()
+      .eq('id', state.editId)
+      .eq('owner_id', userId);
+
+    if (error) throw error;
+
+    showToast('Lieu supprimé.', 'success');
+    closeModal();
+    await loadPlaces();
+  } catch (error) {
+    console.error('Erreur suppression :', error);
+    showToast('Erreur : ' + error.message, 'error');
     setStatus('Erreur');
-    return;
   }
-  showToast('Lieu supprimé', 'success');
-  closeModal();
-  await loadPlaces();
 }
 
-// ── 11. MODAL ────────────────────────────────────────────────────────────────
-function openModal(id) {
-  state.editId = id;
+async function quickToggleFav(id) {
+  const userId = getCurrentUserId();
+  const place = state.places.find(item => String(item.id) === String(id));
+
+  if (!place || !userId || !state.supabase) return;
+
+  try {
+    const newValue = !place.favorite;
+
+    const { error } = await state.supabase
+      .from('places')
+      .update({ favorite: newValue })
+      .eq('id', id)
+      .eq('owner_id', userId);
+
+    if (error) throw error;
+
+    place.favorite = newValue;
+    applyFilters();
+
+    showToast(
+      newValue
+        ? 'Ajouté aux favoris.'
+        : 'Retiré des favoris.',
+      'success'
+    );
+  } catch (error) {
+    console.error('Erreur favori :', error);
+    showToast('Erreur : ' + error.message, 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// 10. MODALE
+// ─────────────────────────────────────────────
+
+function openModal(id = null) {
   const modal = document.getElementById('place-modal');
+  const form = document.getElementById('place-form');
   const title = document.getElementById('modal-title');
-  const deleteBtn = document.getElementById('btn-delete');
+  const deleteButton = document.getElementById('btn-delete');
 
-  if (!modal) return;
+  if (!modal || !form) return;
 
-  document.getElementById('place-form').reset();
+  state.editId = id ? String(id) : null;
+
+  form.reset();
   clearGeoFields();
-  document.getElementById('place-country').value = 'France';
+  setFieldValue('place-country', 'France');
+  setCheckboxValue('place-favorite', false);
 
-  if (id) {
-    title.textContent = 'Modifier un lieu';
-    deleteBtn?.classList.remove('hidden');
-    const place = state.places.find(p => p.id === id);
-    if (place) populateForm(place);
+  if (state.editId) {
+    const place = state.places.find(
+      item => String(item.id) === state.editId
+    );
+
+    if (!place) {
+      showToast('Lieu introuvable.', 'error');
+      state.editId = null;
+      return;
+    }
+
+    if (title) title.textContent = 'Modifier un lieu';
+    deleteButton?.classList.remove('hidden');
+    populateForm(place);
   } else {
-    title.textContent = 'Ajouter un lieu';
-    deleteBtn?.classList.add('hidden');
+    if (title) title.textContent = 'Ajouter un lieu';
+    deleteButton?.classList.add('hidden');
   }
 
   modal.classList.remove('hidden');
   document.body.classList.add('modal-open');
-  document.getElementById('place-name')?.focus();
+
+  window.setTimeout(() => {
+    document.getElementById('place-name')?.focus();
+  }, 50);
 }
 
 function closeModal() {
-  const modal = document.getElementById('place-modal');
-  modal?.classList.add('hidden');
+  document.getElementById('place-modal')?.classList.add('hidden');
   document.body.classList.remove('modal-open');
   state.editId = null;
 }
 
 function populateForm(place) {
-  const map = {
-    'place-name':        'name',
-    'place-type':        'type',
-    'place-description': 'description',
-    'place-address':     'address',
-    'place-city':        'city',
-    'place-postal':      'postal_code',
-    'place-country':     'country',
-    'place-lat':         'latitude',
-    'place-lng':         'longitude',
-    'place-email':       'contact_email',
-    'place-phone':       'phone',
-    'place-website':     'website',
-    'place-status':      'status',
-    'place-priority':    'priority',
-    'place-surface':     'surface_m2',
-    'place-rent':        'rent_monthly',
-    'place-notes':       'notes',
-    'place-tags':        'tags',
-    'place-next-date':   'next_date',
-  };
-  Object.entries(map).forEach(([fieldId, key]) => {
-    const el = document.getElementById(fieldId);
-    if (!el) return;
-    const val = place[key];
-    if (el.type === 'checkbox') el.checked = !!val;
-    else el.value = val ?? '';
-  });
+  setFieldValue('place-name', place.name);
+  setFieldValue('place-type', place.type || 'other');
+  setFieldValue('place-description', place.description);
+  setFieldValue('place-address', place.address);
+  setFieldValue('place-city', place.city);
+  setFieldValue('place-postal', place.postal_code);
+  setFieldValue('place-country', place.country || 'France');
+  setFieldValue('place-lat', place.latitude);
+  setFieldValue('place-lng', place.longitude);
+  setFieldValue('place-email', place.contact_email);
+  setFieldValue('place-phone', place.phone);
+  setFieldValue('place-website', place.website);
+  setFieldValue('place-status', place.status || 'prospect');
+  setFieldValue('place-priority', place.priority || 'low');
+  setFieldValue('place-surface', place.surface_m2);
+  setFieldValue('place-rent', place.rent_monthly);
+  setFieldValue('place-notes', place.notes);
+  setFieldValue('place-tags', place.tags);
+  setFieldValue('place-next-date', formatDateInput(place.next_date));
+  setCheckboxValue('place-favorite', place.favorite);
 }
 
 function getFormData() {
   return {
-    name:      document.getElementById('place-name')?.value,
-    type:      document.getElementById('place-type')?.value,
-    desc:      document.getElementById('place-description')?.value,
-    address:   document.getElementById('place-address')?.value,
-    city:      document.getElementById('place-city')?.value,
-    postal:    document.getElementById('place-postal')?.value,
-    country:   document.getElementById('place-country')?.value,
-    lat:       document.getElementById('place-lat')?.value,
-    lng:       document.getElementById('place-lng')?.value,
-    email:     document.getElementById('place-email')?.value,
-    phone:     document.getElementById('place-phone')?.value,
-    website:   document.getElementById('place-website')?.value,
-    status:    document.getElementById('place-status')?.value,
-    priority:  document.getElementById('place-priority')?.value,
-    surface:   document.getElementById('place-surface')?.value,
-    rent:      document.getElementById('place-rent')?.value,
-    favorite:  document.getElementById('place-favorite')?.checked,
-    notes:     document.getElementById('place-notes')?.value,
-    tags:      document.getElementById('place-tags')?.value,
-    next_date: document.getElementById('place-next-date')?.value,
+    name: getFieldValue('place-name'),
+    type: getFieldValue('place-type'),
+    description: getFieldValue('place-description'),
+    address: getFieldValue('place-address'),
+    city: getFieldValue('place-city'),
+    postalCode: getFieldValue('place-postal'),
+    country: getFieldValue('place-country'),
+    latitude: getFieldValue('place-lat'),
+    longitude: getFieldValue('place-lng'),
+    contactEmail: getFieldValue('place-email'),
+    phone: getFieldValue('place-phone'),
+    website: getFieldValue('place-website'),
+    status: getFieldValue('place-status'),
+    priority: getFieldValue('place-priority'),
+    surface: getFieldValue('place-surface'),
+    rent: getFieldValue('place-rent'),
+    favorite:
+      document.getElementById('place-favorite')?.checked === true,
+    notes: getFieldValue('place-notes'),
+    tags: getFieldValue('place-tags'),
+    nextDate: getFieldValue('place-next-date')
   };
 }
 
-function clearGeoFields() {
-  const latEl = document.getElementById('place-lat');
-  const lngEl = document.getElementById('place-lng');
-  if (latEl) latEl.value = '';
-  if (lngEl) lngEl.value = '';
+function getFieldValue(id) {
+  return document.getElementById(id)?.value?.trim() || '';
 }
 
-// ── 12. FILTERS ─────────────────────────────────────────────────────────────
-function applyFilters() {
-  const type    = document.getElementById('filter-type')?.value || '';
-  const status  = document.getElementById('filter-status')?.value || '';
-  const search  = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+function setFieldValue(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.value = value ?? '';
+}
 
-  state.filtered = state.places.filter(p => {
-    if (type && p.type !== type) return false;
-    if (status && p.status !== status) return false;
+function setCheckboxValue(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.checked = Boolean(value);
+}
+
+function clearGeoFields() {
+  setFieldValue('place-lat', '');
+  setFieldValue('place-lng', '');
+}
+
+// ─────────────────────────────────────────────
+// 11. FILTRES ET TABLEAU
+// ─────────────────────────────────────────────
+
+function applyFilters() {
+  const type = getFieldValue('filter-type');
+  const status = getFieldValue('filter-status');
+  const search = getFieldValue('search-input').toLowerCase();
+
+  state.filtered = state.places.filter(place => {
+    if (type && place.type !== type) return false;
+    if (status && place.status !== status) return false;
+
     if (search) {
-      const hay = `${p.name || ''} ${p.city || ''} ${p.address || ''} ${p.tags || ''} ${p.notes || ''}`.toLowerCase();
-      if (!hay.includes(search)) return false;
+      const searchableText = [
+        place.name,
+        place.city,
+        place.address,
+        place.postal_code,
+        place.description,
+        place.tags,
+        place.notes
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (!searchableText.includes(search)) {
+        return false;
+      }
     }
+
     return true;
   });
 
   renderTable();
-  if (state.map) renderMarkers();
+  renderMarkers();
 }
 
 function renderTable() {
@@ -574,116 +876,482 @@ function renderTable() {
   if (!tbody) return;
 
   if (state.filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">
-      Aucun lieu${state.places.length > 0 ? ' — essayez de modifier les filtres' : ' — ajoutez le premier lieu'}
-    </td></tr>`;
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="6"
+          style="text-align:center;color:var(--text-muted);padding:24px"
+        >
+          ${
+            state.places.length
+              ? 'Aucun lieu ne correspond aux filtres.'
+              : 'Aucun lieu — ajoute ton premier lieu.'
+          }
+        </td>
+      </tr>
+    `;
     return;
   }
 
-  tbody.innerHTML = state.filtered.map(p => `
-    <tr data-id="${p.id}">
-      <td class="td-name">
-        ${p.favorite ? '<span title="Favori">⭐</span> ' : ''}${escHtml(p.name || '—')}
-      </td>
-      <td>${badgeType(p.type)}</td>
-      <td>${escHtml(p.city || '—')}</td>
-      <td>${badgeStatus(p.status)}</td>
-      <td class="td-fav">${p.favorite ? '⭐' : ''}</td>
-      <td class="action-btns">
-        <button onclick="openModal('${p.id}')" title="Éditer">✏️</button>
-        <button onclick="quickToggleFav('${p.id}')" title="Favori">${p.favorite ? '☆' : '⭐'}</button>
-      </td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = state.filtered
+    .map(place => {
+      const id = escAttribute(place.id);
+
+      return `
+        <tr data-id="${id}">
+          <td class="td-name">
+            ${place.favorite ? '⭐ ' : ''}
+            ${escHtml(place.name || '—')}
+          </td>
+
+          <td>${badgeType(place.type)}</td>
+
+          <td>${escHtml(place.city || '—')}</td>
+
+          <td>${badgeStatus(place.status)}</td>
+
+          <td class="td-fav">
+            ${place.favorite ? '⭐' : ''}
+          </td>
+
+          <td class="action-btns">
+            <button
+              type="button"
+              onclick="openModal('${id}')"
+              title="Modifier"
+            >
+              ✏️
+            </button>
+
+            <button
+              type="button"
+              onclick="quickToggleFav('${id}')"
+              title="Favori"
+            >
+              ${place.favorite ? '☆' : '⭐'}
+            </button>
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
 }
 
-// ── 13. FAVORITE QUICK TOGGLE ────────────────────────────────────────────────
-async function quickToggleFav(id) {
-  const place = state.places.find(p => p.id === id);
-  if (!place || !state.supabase) return;
-  const { error } = await state.supabase
-    .from('places')
-    .update({ favorite: !place.favorite })
-    .eq('id', id);
-  if (error) {
-    showToast('Erreur: ' + error.message, 'error');
+// ─────────────────────────────────────────────
+// 12. AFFICHAGE CARTE
+// ─────────────────────────────────────────────
+
+function switchView() {
+  const selectedView =
+    document.getElementById('filter-view')?.value || 'list';
+
+  const listView = document.getElementById('view-list');
+  const mapView = document.getElementById('view-map');
+
+  const showMap = selectedView === 'map';
+
+  listView?.classList.toggle('hidden', showMap);
+  mapView?.classList.toggle('hidden', !showMap);
+
+  listView?.classList.toggle('active', !showMap);
+  mapView?.classList.toggle('active', showMap);
+
+  if (showMap) {
+    if (!state.map) {
+      initMap();
+    }
+
+    window.setTimeout(() => {
+      state.map?.invalidateSize();
+      renderMarkers();
+    }, 150);
+  }
+}
+
+function initMap() {
+  const mapElement = document.getElementById('map');
+
+  if (!mapElement || state.map) return;
+
+  if (!window.L) {
+    showToast(
+      'Leaflet ne s’est pas chargé. Vérifie index.html.',
+      'error'
+    );
     return;
   }
-  place.favorite = !place.favorite;
-  renderTable();
-  if (state.map) renderMarkers();
-}
 
-// ── 14. HELPERS ───────────────────────────────────────────────────────────────
-const TYPE_LABELS = {
-  gallery:  'Galerie d\'art',
-  museum:    'Musée',
-  theater:   'Théâtre',
-  concert:   'Salle de concert',
-  library:   'Bibliothèque',
-  cinema:    'Cinéma',
-  other:     'Autre',
-};
+  state.map = window.L
+    .map('map', {
+      zoomControl: true
+    })
+    .setView([46.6034, 2.5], 6);
 
-const STATUS_LABELS = {
-  prospect:   'Prospect',
-  contacted:  'Contacté',
-  contracted: 'Sous contrat',
-  archived:    'Archivé',
-};
+  window.L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19
+    }
+  ).addTo(state.map);
 
-function badgeType(type) {
-  const labels = TYPE_LABELS;
-  return `<span class="badge-type type-${type || 'other'}">${labels[type] || type || '—'}</span>`;
-}
+  state.mapClickHandler = event => {
+    if (state.mapMode !== 'pointer') return;
 
-function badgeStatus(status) {
-  return `<span class="badge-status status-${status || 'prospect'}">${STATUS_LABELS[status] || status || '—'}</span>`;
-}
+    const { lat, lng } = event.latlng;
 
-function escHtml(str) {
-  if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+    setFieldValue('place-lat', lat.toFixed(6));
+    setFieldValue('place-lng', lng.toFixed(6));
 
-function debounce(fn, ms) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
+    showCoordTooltip(lat, lng);
+
+    if (
+      document
+        .getElementById('place-modal')
+        ?.classList.contains('hidden')
+    ) {
+      openModal(null);
+      setFieldValue('place-lat', lat.toFixed(6));
+      setFieldValue('place-lng', lng.toFixed(6));
+    }
   };
+
+  state.map.on('click', state.mapClickHandler);
+
+  state.map.whenReady(() => {
+    state.map.invalidateSize();
+    renderMarkers();
+  });
 }
 
-function setStatus(msg) {
-  const el = document.getElementById('status-msg');
-  if (el) el.textContent = msg;
+function renderMarkers() {
+  if (!state.map || !window.L) return;
+
+  state.markers.forEach(marker => {
+    state.map.removeLayer(marker);
+  });
+
+  state.markers = [];
+
+  const bounds = window.L.latLngBounds([]);
+
+  state.filtered.forEach(place => {
+    const latitude = Number(place.latitude);
+    const longitude = Number(place.longitude);
+
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
+      return;
+    }
+
+    const marker = window.L
+      .marker([latitude, longitude])
+      .addTo(state.map)
+      .bindPopup(buildPopupHTML(place));
+
+    state.markers.push(marker);
+    bounds.extend([latitude, longitude]);
+  });
+
+  state.markersBounds = bounds.isValid() ? bounds : null;
 }
 
-function updateCount() {
-  const el = document.getElementById('places-count');
-  if (el) el.textContent = `${state.places.length} lieu${state.places.length !== 1 ? 'x' : ''}`;
-  if (document.getElementById('user-email') && state.session?.user?.email) {
-    document.getElementById('user-email').textContent = state.session.user.email;
+function buildPopupHTML(place) {
+  const id = escAttribute(place.id);
+
+  return `
+    <div>
+      <strong>${escHtml(place.name || 'Lieu')}</strong><br>
+
+      <span style="font-size:12px">
+        ${escHtml(place.city || '')}
+      </span><br>
+
+      <span style="font-size:11px">
+        ${escHtml(TYPE_LABELS[place.type] || place.type || 'Autre')}
+      </span>
+
+      <div style="margin-top:8px">
+        <button
+          type="button"
+          onclick="openModal('${id}')"
+          style="
+            background:#2563eb;
+            color:#fff;
+            border:none;
+            border-radius:4px;
+            padding:5px 10px;
+            cursor:pointer;
+          "
+        >
+          Modifier
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function centerOnFrance() {
+  if (!state.map) {
+    initMap();
+  }
+
+  state.map?.setView([46.6034, 2.5], 6);
+}
+
+function fitMarkers() {
+  if (!state.map) {
+    initMap();
+  }
+
+  if (!state.map || !state.markersBounds) {
+    showToast(
+      'Aucun lieu avec des coordonnées.',
+      'error'
+    );
+    return;
+  }
+
+  state.map.fitBounds(state.markersBounds, {
+    padding: [40, 40],
+    maxZoom: 13
+  });
+}
+
+function goToMyLocation() {
+  if (!state.map) {
+    initMap();
+  }
+
+  if (!state.map) return;
+
+  if (!navigator.geolocation) {
+    showToast(
+      'La géolocalisation n’est pas disponible.',
+      'error'
+    );
+    return;
+  }
+
+  showToast('Recherche de ta position…');
+
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      state.map.setView([latitude, longitude], 14);
+
+      if (state.userLocationMarker) {
+        state.map.removeLayer(state.userLocationMarker);
+      }
+
+      state.userLocationMarker = window.L
+        .marker([latitude, longitude])
+        .addTo(state.map)
+        .bindPopup('📍 Ta position')
+        .openPopup();
+
+      showToast('Position trouvée.', 'success');
+    },
+    error => {
+      console.error('Erreur géolocalisation :', error);
+      showToast(
+        'Position inaccessible. Vérifie les autorisations.',
+        'error'
+      );
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    }
+  );
+}
+
+function togglePointerMode() {
+  const button = document.getElementById('btn-pointer');
+  const label = document.getElementById('map-mode-label');
+
+  if (state.mapMode === 'pointer') {
+    state.mapMode = 'browse';
+
+    button?.classList.remove('active');
+
+    if (label) {
+      label.textContent = 'Mode pointer : inactif';
+    }
+
+    if (state.map && state.mapClickHandler) {
+      state.map.off('click', state.mapClickHandler);
+    }
+  } else {
+    state.mapMode = 'pointer';
+
+    button?.classList.add('active');
+
+    if (label) {
+      label.textContent = 'Mode pointer : actif';
+    }
+
+    if (state.map && state.mapClickHandler) {
+      state.map.off('click', state.mapClickHandler);
+      state.map.on('click', state.mapClickHandler);
+    }
   }
 }
 
-function showToast(msg, type = '') {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-  const toast = document.createElement('div');
-  toast.className = `toast${type ? ' ' + type : ''}`;
-  toast.textContent = msg;
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    setTimeout(() => toast.remove(), 300);
+function showCoordTooltip(latitude, longitude) {
+  const tooltip = document.getElementById('coord-tooltip');
+  if (!tooltip) return;
+
+  tooltip.textContent =
+    `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+  tooltip.classList.remove('hidden');
+
+  clearTimeout(tooltip.hideTimer);
+
+  tooltip.hideTimer = window.setTimeout(() => {
+    tooltip.classList.add('hidden');
   }, 3000);
 }
 
-// ── Globals for inline onclick attributes ──
+// ─────────────────────────────────────────────
+// 13. HELPERS
+// ─────────────────────────────────────────────
+
+function getCurrentUserId() {
+  return state.session?.user?.id || null;
+}
+
+function updateUserDisplay() {
+  const element = document.getElementById('user-email');
+
+  if (element) {
+    element.textContent =
+      state.session?.user?.email || '';
+  }
+}
+
+function updateCount() {
+  const element = document.getElementById('places-count');
+  if (!element) return;
+
+  const count = state.places.length;
+
+  element.textContent =
+    `${count} lieu${count > 1 ? 'x' : ''}`;
+}
+
+function badgeType(type) {
+  const safeType = /^[a-z-]+$/i.test(type || '')
+    ? type
+    : 'other';
+
+  const label = TYPE_LABELS[type] || type || 'Autre';
+
+  return `
+    <span class="badge-type type-${safeType}">
+      ${escHtml(label)}
+    </span>
+  `;
+}
+
+function badgeStatus(status) {
+  const safeStatus = /^[a-z-]+$/i.test(status || '')
+    ? status
+    : 'prospect';
+
+  const label =
+    STATUS_LABELS[status] || status || 'Prospect';
+
+  return `
+    <span class="badge-status status-${safeStatus}">
+      ${escHtml(label)}
+    </span>
+  `;
+}
+
+function parseOptionalNumber(value) {
+  if (
+    value === '' ||
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  const normalized = String(value).replace(',', '.');
+  const number = Number(normalized);
+
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatDateInput(value) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+}
+
+function escHtml(value) {
+  if (value === null || value === undefined) return '';
+
+  return String(value)
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"')
+    .replace(/'/g, '&#039;');
+}
+
+function escAttribute(value) {
+  return escHtml(value).replace(/`/g, '&#096;');
+}
+
+function debounce(callback, delay) {
+  let timer;
+
+  return (...args) => {
+    clearTimeout(timer);
+
+    timer = window.setTimeout(() => {
+      callback(...args);
+    }, delay);
+  };
+}
+
+function setStatus(message) {
+  const element = document.getElementById('status-msg');
+
+  if (element) {
+    element.textContent = message;
+  }
+}
+
+function showToast(message, type = '') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+
+  toast.className = type
+    ? `toast ${type}`
+    : 'toast';
+
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  window.setTimeout(() => {
+    toast.style.opacity = '0';
+
+    window.setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, 3000);
+}
+
+// Fonctions accessibles depuis les boutons HTML générés
 window.openModal = openModal;
 window.quickToggleFav = quickToggleFav;
