@@ -26,6 +26,7 @@ const state = {
   places: [],
   filtered: [],
   editId: null,
+  placeTypes: [],          // ← nouveau
 
   currentView: 'map',
 
@@ -40,23 +41,23 @@ const state = {
   activeTileLayer: null,
   mapStyle: 'dark',
 
+  geoResults: [],          // ← nouveau
+  geoIndex: -1,            // ← nouveau
+  geoAbort: null,          // ← nouveau
+
   authMode: 'login',
   initialized: false
 };
 
-// ─────────────────────────────────────────────
-// 3. LIBELLÉS
-// ─────────────────────────────────────────────
-
-const TYPE_LABELS = {
-  gallery: 'Galerie d\'art',
-  museum: 'Musée',
-  theater: 'Théâtre',
-  concert: 'Salle de concert',
-  library: 'Bibliothèque',
-  cinema: 'Cinéma',
-  other: 'Autre'
-};
+const FALLBACK_TYPES = [
+  { slug: 'gallery', label: "Galerie d'art", icon: '🖼️', color: '#d4adff', is_system: true },
+  { slug: 'museum',  label: 'Musée',         icon: '🏛️', color: '#8bc1ff', is_system: true },
+  { slug: 'theater', label: 'Théâtre',       icon: '🎭', color: '#ff9ca2', is_system: true },
+  { slug: 'concert', label: 'Salle de concert', icon: '🎵', color: '#ff9ed5', is_system: true },
+  { slug: 'library', label: 'Bibliothèque',  icon: '📚', color: '#7be5a7', is_system: true },
+  { slug: 'cinema',  label: 'Cinéma',        icon: '🎬', color: '#ffb77f', is_system: true },
+  { slug: 'other',   label: 'Autre',         icon: '📍', color: '#bdc6d3', is_system: true }
+];
 
 const STATUS_LABELS = {
   prospect: 'Prospect',
@@ -64,6 +65,392 @@ const STATUS_LABELS = {
   contracted: 'Sous contrat',
   archived: 'Archivé'
 };
+
+function typeBySlug(slug) {
+  return state.placeTypes.find(t => t.slug === slug) || null;
+}
+
+function typeLabel(slug) {
+  return typeBySlug(slug)?.label || slug || 'Autre';
+}
+
+// ─────────────────────────────────────────────
+//  TYPES DE LIEU (dynamiques)
+// ─────────────────────────────────────────────
+
+async function loadPlaceTypes() {
+  if (!state.supabase || !getCurrentUserId()) {
+    state.placeTypes = [...FALLBACK_TYPES];
+    renderTypeOptions();
+    return;
+  }
+
+  try {
+    const { data, error } = await state.supabase
+      .from('place_types')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('label', { ascending: true });
+
+    if (error) throw error;
+
+    state.placeTypes = (data && data.length) ? data : [...FALLBACK_TYPES];
+  } catch (error) {
+    console.error('Erreur loadPlaceTypes :', error);
+    state.placeTypes = [...FALLBACK_TYPES];
+    showToast('Types de lieu : repli sur la liste par défaut.', 'error');
+  }
+
+  renderTypeOptions();
+}
+
+function renderTypeOptions() {
+  const filterSelect = document.getElementById('filter-type');
+  const formSelect = document.getElementById('place-type');
+
+  if (filterSelect) {
+    const previous = filterSelect.value;
+    filterSelect.innerHTML =
+      '<option value="">Tous les types</option>' +
+      state.placeTypes.map(t =>
+        `<option value="${escAttribute(t.slug)}">${escHtml(t.icon || '')} ${escHtml(t.label)}</option>`
+      ).join('');
+    filterSelect.value = previous;
+  }
+
+  if (formSelect) {
+    const previous = formSelect.value;
+    formSelect.innerHTML = state.placeTypes.map(t =>
+      `<option value="${escAttribute(t.slug)}">${escHtml(t.icon || '')} ${escHtml(t.label)}</option>`
+    ).join('');
+    formSelect.value = previous || 'other';
+  }
+}
+
+function slugify(text) {
+  return String(text)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || ('type-' + Date.now().toString(36));
+}
+
+function openTypesModal() {
+  renderTypesList();
+  document.getElementById('types-modal')?.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+
+function closeTypesModal() {
+  document.getElementById('types-modal')?.classList.add('hidden');
+  if (document.getElementById('place-modal')?.classList.contains('hidden')) {
+    document.body.classList.remove('modal-open');
+  }
+}
+
+function renderTypesList() {
+  const list = document.getElementById('types-list');
+  if (!list) return;
+
+  list.innerHTML = state.placeTypes.map(t => `
+    <li class="type-item">
+      <span class="type-dot" style="background:${escAttribute(t.color || '#bdc6d3')}"></span>
+      <span class="type-item-icon">${escHtml(t.icon || '📍')}</span>
+      <span class="type-item-label">${escHtml(t.label)}</span>
+      ${t.is_system
+        ? '<span class="type-item-tag">intégré</span>'
+        : `<button type="button" class="type-delete" data-id="${escAttribute(t.id)}" title="Supprimer">🗑️</button>`}
+    </li>
+  `).join('');
+}
+
+async function handleTypeCreate(event) {
+  event.preventDefault();
+
+  const userId = getCurrentUserId();
+  if (!state.supabase || !userId) {
+    showToast('Session expirée.', 'error');
+    return;
+  }
+
+  const label = getFieldValue('type-label');
+  const icon = getFieldValue('type-icon') || '📍';
+  const color = getFieldValue('type-color') || '#4f8cff';
+
+  if (!label) {
+    showToast('Le nom du type est obligatoire.', 'error');
+    return;
+  }
+
+  const slug = slugify(label);
+
+  if (state.placeTypes.some(t => t.slug === slug)) {
+    showToast('Ce type existe déjà.', 'error');
+    return;
+  }
+
+  const button = document.getElementById('btn-add-type');
+  if (button) button.disabled = true;
+
+  try {
+    const { error } = await state.supabase.from('place_types').insert({
+      owner_id: userId,
+      slug, label, icon, color,
+      is_system: false,
+      sort_order: 500
+    });
+
+    if (error) throw error;
+
+    document.getElementById('type-form')?.reset();
+    setFieldValue('type-icon', '📍');
+    setFieldValue('type-color', '#4f8cff');
+
+    await loadPlaceTypes();
+    renderTypesList();
+    applyFilters();
+
+    setFieldValue('place-type', slug);
+    showToast(`Type « ${label} » créé.`, 'success');
+  } catch (error) {
+    console.error('Erreur création type :', error);
+    showToast('Erreur : ' + error.message, 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function handleTypeDelete(id) {
+  const userId = getCurrentUserId();
+  const type = state.placeTypes.find(t => String(t.id) === String(id));
+  if (!type || !userId) return;
+
+  const used = state.places.filter(p => p.type === type.slug).length;
+
+  const message = used
+    ? `${used} lieu(x) utilisent « ${type.label} ». Ils basculeront sur « Autre ». Continuer ?`
+    : `Supprimer le type « ${type.label} » ?`;
+
+  if (!window.confirm(message)) return;
+
+  try {
+    if (used) {
+      const { error: updateError } = await state.supabase
+        .from('places')
+        .update({ type: 'other' })
+        .eq('owner_id', userId)
+        .eq('type', type.slug);
+
+      if (updateError) throw updateError;
+    }
+
+    const { error } = await state.supabase
+      .from('place_types')
+      .delete()
+      .eq('id', id)
+      .eq('owner_id', userId);
+
+    if (error) throw error;
+
+    await loadPlaceTypes();
+    renderTypesList();
+    await loadPlaces();
+
+    showToast('Type supprimé.', 'success');
+  } catch (error) {
+    console.error('Erreur suppression type :', error);
+    showToast('Erreur : ' + error.message, 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+//  GÉOCODAGE / AUTOCOMPLÉTION D'ADRESSE
+// ─────────────────────────────────────────────
+
+const BAN_URL = 'https://api-adresse.data.gouv.fr/search/';
+const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+
+function isFranceSelected() {
+  const country = getFieldValue('place-country').toLowerCase();
+  return !country || country.startsWith('fr');
+}
+
+function setAddressStatus(message, kind = '') {
+  const element = document.getElementById('address-status');
+  if (!element) return;
+  element.textContent = message;
+  element.className = 'address-status' + (kind ? ' ' + kind : '');
+}
+
+async function searchAddress(query) {
+  if (state.geoAbort) state.geoAbort.abort();
+  state.geoAbort = new AbortController();
+
+  const signal = state.geoAbort.signal;
+  const city = getFieldValue('place-city');
+
+  try {
+    if (isFranceSelected()) {
+      const url = new URL(BAN_URL);
+      url.searchParams.set('q', query);
+      url.searchParams.set('limit', '6');
+      url.searchParams.set('autocomplete', '1');
+
+      const response = await fetch(url, { signal });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+
+      const json = await response.json();
+
+      return (json.features || []).map(f => ({
+        main: f.properties.name || f.properties.label,
+        sub: [f.properties.postcode, f.properties.city].filter(Boolean).join(' '),
+        address: f.properties.name || '',
+        city: f.properties.city || '',
+        postal: f.properties.postcode || '',
+        country: 'France',
+        lat: f.geometry.coordinates[1],
+        lng: f.geometry.coordinates[0]
+      }));
+    }
+
+    const url = new URL(NOMINATIM_URL);
+    url.searchParams.set('q', city ? `${query}, ${city}` : query);
+    url.searchParams.set('format', 'jsonv2');
+    url.searchParams.set('addressdetails', '1');
+    url.searchParams.set('limit', '6');
+
+    const response = await fetch(url, {
+      signal,
+      headers: { 'Accept-Language': 'fr' }
+    });
+
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+
+    const json = await response.json();
+
+    return (json || []).map(item => {
+      const a = item.address || {};
+      const street = [a.house_number, a.road].filter(Boolean).join(' ');
+
+      return {
+        main: street || item.name || item.display_name.split(',')[0],
+        sub: item.display_name,
+        address: street || item.name || '',
+        city: a.city || a.town || a.village || a.municipality || '',
+        postal: a.postcode || '',
+        country: a.country || '',
+        lat: Number(item.lat),
+        lng: Number(item.lon)
+      };
+    });
+  } catch (error) {
+    if (error.name === 'AbortError') return null;
+    throw error;
+  }
+}
+
+function renderSuggestions(results) {
+  const list = document.getElementById('address-suggestions');
+  if (!list) return;
+
+  state.geoResults = results;
+  state.geoIndex = -1;
+
+  if (!results.length) {
+    list.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+
+  list.innerHTML = results.map((r, i) => `
+    <li role="option" data-index="${i}">
+      <span class="suggestion-main">${escHtml(r.main)}</span>
+      <span class="suggestion-sub">${escHtml(r.sub)}</span>
+    </li>
+  `).join('');
+
+  list.classList.remove('hidden');
+}
+
+function hideSuggestions() {
+  const list = document.getElementById('address-suggestions');
+  list?.classList.add('hidden');
+  state.geoIndex = -1;
+}
+
+function applySuggestion(index) {
+  const result = state.geoResults[index];
+  if (!result) return;
+
+  setFieldValue('place-address', result.address || result.main);
+  if (result.city) setFieldValue('place-city', result.city);
+  if (result.postal) setFieldValue('place-postal', result.postal);
+  if (result.country) setFieldValue('place-country', result.country);
+
+  setFieldValue('place-lat', result.lat.toFixed(6));
+  setFieldValue('place-lng', result.lng.toFixed(6));
+
+  hideSuggestions();
+  setAddressStatus('✓ Adresse et coordonnées renseignées.', 'ok');
+
+  if (state.map) {
+    state.map.setView([result.lat, result.lng], 16);
+    showCoordTooltip(result.lat, result.lng);
+  }
+}
+
+const handleAddressInput = debounce(async () => {
+  const query = getFieldValue('place-address');
+
+  if (query.length < 3) {
+    hideSuggestions();
+    setAddressStatus('');
+    return;
+  }
+
+  setAddressStatus('Recherche…');
+
+  try {
+    const results = await searchAddress(query);
+    if (results === null) return;
+
+    renderSuggestions(results);
+    setAddressStatus(results.length ? '' : 'Aucun résultat.', results.length ? '' : 'ko');
+  } catch (error) {
+    console.error('Erreur géocodage :', error);
+    setAddressStatus('Service de recherche indisponible.', 'ko');
+    hideSuggestions();
+  }
+}, 320);
+
+function handleAddressKeydown(event) {
+  const list = document.getElementById('address-suggestions');
+  const isOpen = list && !list.classList.contains('hidden');
+
+  if (!isOpen) return;
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const delta = event.key === 'ArrowDown' ? 1 : -1;
+    const count = state.geoResults.length;
+
+    state.geoIndex = (state.geoIndex + delta + count) % count;
+
+    list.querySelectorAll('li').forEach((li, i) => {
+      li.classList.toggle('active', i === state.geoIndex);
+    });
+  } else if (event.key === 'Enter') {
+    if (state.geoIndex >= 0) {
+      event.preventDefault();
+      applySuggestion(state.geoIndex);
+    }
+  } else if (event.key === 'Escape') {
+    event.stopPropagation();
+    hideSuggestions();
+  }
+}
+
 
 // ─────────────────────────────────────────────
 // 4. DÉMARRAGE
@@ -211,6 +598,7 @@ function clearLocalData() {
 // ─────────────────────────────────────────────
 
 function bindEvents() {
+  // --- Authentification ---
   document.getElementById('auth-tabs')?.addEventListener('click', event => {
     const button = event.target.closest('.tab-btn');
     if (!button) return;
@@ -226,6 +614,7 @@ function bindEvents() {
     .getElementById('btn-logout')
     ?.addEventListener('click', handleLogout);
 
+  // --- Barre d'outils principale ---
   document
     .getElementById('btn-add')
     ?.addEventListener('click', () => openModal(null));
@@ -243,19 +632,20 @@ function bindEvents() {
     ?.addEventListener('input', debounce(applyFilters, 250));
 
   document
-  .getElementById('view-switcher')
-  ?.addEventListener('click', event => {
-    const button = event.target.closest('.view-btn');
-    if (!button) return;
+    .getElementById('view-switcher')
+    ?.addEventListener('click', event => {
+      const button = event.target.closest('.view-btn');
+      if (!button) return;
 
-    switchView(button.dataset.view);
-  });
+      switchView(button.dataset.view);
+    });
 
-document
-  .getElementById('map-style')
-  ?.addEventListener('change', event => {
-    changeMapStyle(event.target.value);
-  });
+  // --- Carte ---
+  document
+    .getElementById('map-style')
+    ?.addEventListener('change', event => {
+      changeMapStyle(event.target.value);
+    });
 
   document
     .getElementById('btn-fit-bounds')
@@ -273,6 +663,7 @@ document
     .getElementById('btn-pointer')
     ?.addEventListener('click', togglePointerMode);
 
+  // --- Modale lieu ---
   document
     .getElementById('modal-close')
     ?.addEventListener('click', closeModal);
@@ -299,10 +690,81 @@ document
     }
   });
 
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') {
-      closeModal();
+  // --- Gestion des types de lieu ---
+  document
+    .getElementById('btn-manage-types')
+    ?.addEventListener('click', openTypesModal);
+
+  document
+    .getElementById('btn-new-type')
+    ?.addEventListener('click', openTypesModal);
+
+  document
+    .getElementById('types-close')
+    ?.addEventListener('click', closeTypesModal);
+
+  document
+    .getElementById('type-form')
+    ?.addEventListener('submit', handleTypeCreate);
+
+  document.getElementById('types-list')?.addEventListener('click', event => {
+    const button = event.target.closest('.type-delete');
+    if (!button) return;
+
+    handleTypeDelete(button.dataset.id);
+  });
+
+  document.getElementById('types-modal')?.addEventListener('click', event => {
+    if (event.target.id === 'types-modal') {
+      closeTypesModal();
     }
+  });
+
+  // --- Autocomplétion d'adresse ---
+  const addressInput = document.getElementById('place-address');
+
+  addressInput?.addEventListener('input', handleAddressInput);
+  addressInput?.addEventListener('keydown', handleAddressKeydown);
+
+  addressInput?.addEventListener('blur', () => {
+    // Délai pour laisser le clic sur une suggestion se produire
+    window.setTimeout(hideSuggestions, 180);
+  });
+
+  document
+    .getElementById('address-suggestions')
+    ?.addEventListener('mousedown', event => {
+      const item = event.target.closest('li[data-index]');
+      if (!item) return;
+
+      event.preventDefault();
+      applySuggestion(Number(item.dataset.index));
+    });
+
+  document.getElementById('btn-geocode')?.addEventListener('click', () => {
+    const query = getFieldValue('place-address');
+
+    if (query.length < 3) {
+      setAddressStatus('Saisis au moins 3 caractères.', 'ko');
+      return;
+    }
+
+    handleAddressInput();
+  });
+
+  // --- Raccourci clavier global ---
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+
+    const typesModal = document.getElementById('types-modal');
+
+    // La modale des types est au-dessus : on la ferme en priorité
+    if (typesModal && !typesModal.classList.contains('hidden')) {
+      closeTypesModal();
+      return;
+    }
+
+    closeModal();
   });
 }
 
@@ -322,17 +784,26 @@ function setAuthMode(mode) {
 
   const isRegister = state.authMode === 'register';
   const submitButton = document.getElementById('auth-submit');
+  const nameGroup = document.getElementById('auth-name-group');
   const nameInput = document.getElementById('auth-name');
-  const nameLabel = document.getElementById('label-name');
+  const passwordInput = document.getElementById('auth-password');
 
   if (submitButton) {
-    submitButton.textContent = isRegister
-      ? 'Inscription'
-      : 'Connexion';
+    submitButton.textContent = isRegister ? 'Inscription' : 'Connexion';
   }
 
-  nameInput?.classList.toggle('hidden', !isRegister);
-  nameLabel?.classList.toggle('hidden', !isRegister);
+  // On masque le groupe entier (label + input) : plus propre
+  nameGroup?.classList.toggle('hidden', !isRegister);
+
+  if (passwordInput) {
+    passwordInput.autocomplete = isRegister
+      ? 'new-password'
+      : 'current-password';
+  }
+
+  if (!isRegister && nameInput) {
+    nameInput.value = '';
+  }
 
   hideAuthError();
 }
@@ -347,16 +818,9 @@ async function handleAuthSubmit(event) {
     return;
   }
 
-  const email = document
-    .getElementById('auth-email')
-    ?.value.trim();
-
-  const password =
-    document.getElementById('auth-password')?.value || '';
-
-  const fullName = document
-    .getElementById('auth-name')
-    ?.value.trim();
+  const email = document.getElementById('auth-email')?.value.trim();
+  const password = document.getElementById('auth-password')?.value || '';
+  const fullName = document.getElementById('auth-name')?.value.trim();
 
   if (!email || !password) {
     showAuthError('L’email et le mot de passe sont obligatoires.');
@@ -364,14 +828,11 @@ async function handleAuthSubmit(event) {
   }
 
   if (password.length < 6) {
-    showAuthError(
-      'Le mot de passe doit contenir au moins 6 caractères.'
-    );
+    showAuthError('Le mot de passe doit contenir au moins 6 caractères.');
     return;
   }
 
   const submitButton = document.getElementById('auth-submit');
-  const originalText = submitButton?.textContent;
 
   hideAuthError();
 
@@ -386,9 +847,7 @@ async function handleAuthSubmit(event) {
         email,
         password,
         options: {
-          data: {
-            full_name: fullName || ''
-          }
+          data: { full_name: fullName || '' }
         }
       });
 
@@ -396,9 +855,14 @@ async function handleAuthSubmit(event) {
 
       if (data.session) {
         state.session = data.session;
-        showToast('Compte créé et connecté.', 'success');
+
         showScreen('app');
+        updateUserDisplay();
+
+        await loadPlaceTypes();
         await loadPlaces();
+
+        showToast('Compte créé et connecté.', 'success');
       } else {
         showToast(
           'Compte créé. Vérifie ton email pour confirmer ton inscription.',
@@ -409,10 +873,7 @@ async function handleAuthSubmit(event) {
       }
     } else {
       const { data, error } =
-        await state.supabase.auth.signInWithPassword({
-          email,
-          password
-        });
+        await state.supabase.auth.signInWithPassword({ email, password });
 
       if (error) throw error;
 
@@ -421,48 +882,32 @@ async function handleAuthSubmit(event) {
       }
 
       state.session = data.session;
+
       showScreen('app');
       updateUserDisplay();
+
+      await loadPlaceTypes();
       await loadPlaces();
 
       showToast('Connexion réussie.', 'success');
     }
-    } catch (error) {
-    console.error('Erreur savePlace complète :', {
+  } catch (error) {
+    // ⚠️ C'était ici le bug : le catch contenait le code de savePlace
+    // et référençait une variable "payload" inexistante → ReferenceError,
+    // qui masquait totalement la vraie erreur d'authentification.
+    console.error('Erreur authentification :', {
+      mode: state.authMode,
       code: error?.code,
-      message: error?.message,
-      details: error?.details,
-      hint: error?.hint,
-      payload
+      status: error?.status,
+      message: error?.message
     });
 
-    let message = error?.message || 'Erreur inconnue';
-
-    if (error?.code === 'PGRST204') {
-      message =
-        'Une colonne envoyée par l’application manque dans Supabase. ' +
-        message;
-    }
-
-    if (error?.code === '42501') {
-      message =
-        'Accès refusé par Supabase. Vérifie les politiques RLS.';
-    }
-
-    showToast(message, 'error');
-    setStatus('Erreur');
+    showAuthError(translateAuthError(error?.message));
   } finally {
-     
     if (submitButton) {
       submitButton.disabled = false;
       submitButton.textContent =
-        state.authMode === 'register'
-          ? 'Inscription'
-          : 'Connexion';
-    }
-
-    if (originalText && !submitButton?.textContent) {
-      submitButton.textContent = originalText;
+        state.authMode === 'register' ? 'Inscription' : 'Connexion';
     }
   }
 }
@@ -504,7 +949,7 @@ function hideAuthError() {
 }
 
 function translateAuthError(message = '') {
-  const lowerMessage = message.toLowerCase();
+  const lowerMessage = String(message).toLowerCase();
 
   if (lowerMessage.includes('invalid login credentials')) {
     return 'Email ou mot de passe incorrect.';
@@ -514,21 +959,34 @@ function translateAuthError(message = '') {
     return 'Tu dois confirmer ton adresse email avant de te connecter.';
   }
 
-  if (lowerMessage.includes('user already registered')) {
+  if (
+    lowerMessage.includes('user already registered') ||
+    lowerMessage.includes('already been registered')
+  ) {
     return 'Un compte existe déjà avec cette adresse email.';
   }
 
   if (lowerMessage.includes('password should be')) {
-    return 'Le mot de passe est trop court.';
+    return 'Le mot de passe est trop court (6 caractères minimum).';
   }
 
   if (lowerMessage.includes('rate limit')) {
     return 'Trop de tentatives. Attends quelques minutes.';
   }
 
+  if (lowerMessage.includes('unable to validate email')) {
+    return 'Cette adresse email semble invalide.';
+  }
+
+  if (
+    lowerMessage.includes('failed to fetch') ||
+    lowerMessage.includes('networkerror')
+  ) {
+    return 'Connexion au serveur impossible. Vérifie ta connexion internet.';
+  }
+
   return message || 'Une erreur inconnue est survenue.';
 }
-
 // ─────────────────────────────────────────────
 // 8. CHARGEMENT DES LIEUX
 // ─────────────────────────────────────────────
